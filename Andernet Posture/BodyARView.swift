@@ -1,19 +1,21 @@
+//
+//  BodyARView.swift
+//  Andernet Posture
+//
+//  Thin UIViewRepresentable wrapper around ARView.
+//  All body-tracking logic is handled by BodyTrackingService.
+//
+
 import SwiftUI
 import RealityKit
 import ARKit
-import simd
-
-final class MetricsModel: ObservableObject {
-    @Published var trunkLeanDegrees: Double = 0
-    @Published var cadenceSPM: Double = 0
-    @Published var avgStrideLengthM: Double = 0
-}
+import QuartzCore
 
 struct BodyARView: UIViewRepresentable {
-    @ObservedObject var metrics: MetricsModel
+    let viewModel: CaptureViewModel
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(metrics: metrics)
+        Coordinator(viewModel: viewModel)
     }
 
     func makeUIView(context: Context) -> ARView {
@@ -26,127 +28,146 @@ struct BodyARView: UIViewRepresentable {
 
         let config = ARBodyTrackingConfiguration()
         config.isAutoFocusEnabled = true
+        config.frameSemantics.insert(.bodyDetection)
         arView.session.delegate = context.coordinator
         arView.session.run(config, options: [.resetTracking, .removeExistingAnchors])
+        arView.environment.sceneUnderstanding.options = []
+
+        // Add skeleton anchor
+        context.coordinator.setupSkeletonOverlay(in: arView)
 
         return arView
     }
 
     func updateUIView(_ uiView: ARView, context: Context) {}
+
+    static func dismantleUIView(_ uiView: ARView, coordinator: Coordinator) {
+        uiView.session.pause()
+    }
 }
+
+// MARK: - Coordinator (ARSession delegate, skeleton overlay)
 
 extension BodyARView {
     final class Coordinator: NSObject, ARSessionDelegate {
-        private let metrics: MetricsModel
+        private let viewModel: CaptureViewModel
+        private var bodyAnchorEntity: AnchorEntity?
+        private var jointEntities: [JointName: ModelEntity] = [:]
+        private var boneEntities: [(ModelEntity, JointName, JointName)] = []
 
-        private var lastLeftAnkleYs: [Float] = []
-        private var lastRightAnkleYs: [Float] = []
-        private var lastLeftStepTime: CFTimeInterval?
-        private var lastRightStepTime: CFTimeInterval?
-        private var stepTimestamps: [CFTimeInterval] = []
-        private var lastLeftFootXZ: SIMD2<Float>?
-        private var lastRightFootXZ: SIMD2<Float>?
-        private var strideLengths: [Float] = []
-
-        init(metrics: MetricsModel) {
-            self.metrics = metrics
+        init(viewModel: CaptureViewModel) {
+            self.viewModel = viewModel
         }
 
-        func session(_ session: ARSession, didUpdate anchors: [ARAnchor]) {
-            guard let body = anchors.compactMap({ $0 as? ARBodyAnchor }).last else { return }
+        // MARK: Skeleton overlay
 
+        func setupSkeletonOverlay(in arView: ARView) {
+            let anchor = AnchorEntity()
+            arView.scene.addAnchor(anchor)
+            bodyAnchorEntity = anchor
+
+            // Create sphere entities for each tracked joint
+            let jointMaterial = SimpleMaterial(color: .systemCyan.withAlphaComponent(0.8), isMetallic: false)
+            let jointMesh = MeshResource.generateSphere(radius: 0.025)
+
+            for joint in JointName.allCases {
+                let entity = ModelEntity(mesh: jointMesh, materials: [jointMaterial])
+                entity.isEnabled = false
+                anchor.addChild(entity)
+                jointEntities[joint] = entity
+            }
+
+            // Create cylinder entities for bone connections
+            let boneMaterial = SimpleMaterial(color: .systemTeal.withAlphaComponent(0.6), isMetallic: false)
+            for (from, to) in JointName.skeletonConnections {
+                let entity = ModelEntity(
+                    mesh: MeshResource.generateBox(size: [0.01, 0.01, 0.01]),
+                    materials: [boneMaterial]
+                )
+                entity.isEnabled = false
+                anchor.addChild(entity)
+                boneEntities.append((entity, from, to))
+            }
+        }
+
+        // MARK: ARSessionDelegate
+
+        nonisolated func session(_ session: ARSession, didUpdate anchors: [ARAnchor]) {
+            guard let body = anchors.compactMap({ $0 as? ARBodyAnchor }).last else { return }
             let rootTransform = body.transform
 
-            func worldPosition(_ name: ARSkeleton.JointName) -> SIMD3<Float>? {
+            var joints: [JointName: SIMD3<Float>] = [:]
+
+            for joint in JointName.allCases {
+                let path = joint.jointPath
                 let skeleton = body.skeleton
-                guard let index = skeleton.definition.index(for: name) else { return nil }
-                let modelT = skeleton.jointModelTransforms[index]
+                guard let idx = skeleton.definition.index(for: ARSkeleton.JointName(rawValue: path)) else { continue }
+                let modelT = skeleton.jointModelTransforms[idx]
                 let worldT = simd_mul(rootTransform, modelT)
-                return SIMD3<Float>(worldT.columns.3.x, worldT.columns.3.y, worldT.columns.3.z)
+                let pos = SIMD3<Float>(worldT.columns.3.x, worldT.columns.3.y, worldT.columns.3.z)
+                joints[joint] = pos
             }
 
-            guard
-                let hips = worldPosition(.root),
-                let neck = worldPosition(.neck_1)
-            else { return }
+            let timestamp = session.currentFrame?.timestamp ?? CACurrentMediaTime()
 
-            let torso = simd_normalize(neck - hips)
-            let up = SIMD3<Float>(0, 1, 0)
-            let cosTheta = simd_clamp(simd_dot(torso, up), -1, 1)
-            let angleRad = acos(cosTheta)
-            let angleDeg = Double(angleRad * 180 / .pi)
+            MainActor.assumeIsolated {
+                // Forward to CaptureViewModel's body tracking callback
+                viewModel.handleBodyFrame(joints: joints, timestamp: timestamp)
 
-            DispatchQueue.main.async {
-                self.metrics.trunkLeanDegrees = angleDeg
-            }
-
-            if let la = worldPosition(.left_foot), let ra = worldPosition(.right_foot) {
-                processGait(la: la, ra: ra, timestamp: session.currentFrame?.timestamp ?? CACurrentMediaTime())
+                // Update skeleton overlay
+                updateSkeletonOverlay(joints: joints)
             }
         }
 
-        private func processGait(la: SIMD3<Float>, ra: SIMD3<Float>, timestamp: CFTimeInterval) {
-            lastLeftAnkleYs.append(la.y)
-            lastRightAnkleYs.append(ra.y)
-            if lastLeftAnkleYs.count > 15 { lastLeftAnkleYs.removeFirst() }
-            if lastRightAnkleYs.count > 15 { lastRightAnkleYs.removeFirst() }
-
-            func isLocalMin(_ arr: [Float]) -> Bool {
-                guard arr.count >= 5 else { return false }
-                let i = arr.count - 3
-                let a = arr[i-1], b = arr[i], c = arr[i+1]
-                return b < a && b < c
+        nonisolated func session(_ session: ARSession, didFailWithError error: Error) {
+            MainActor.assumeIsolated {
+                viewModel.errorMessage = error.localizedDescription
             }
+        }
 
-            if isLocalMin(lastLeftAnkleYs) {
-                if let prev = lastLeftStepTime {
-                    let _ = timestamp - prev
-                    stepTimestamps.append(timestamp)
-                    updateCadence()
-                    if let prevXZ = lastLeftFootXZ {
-                        let curXZ = SIMD2<Float>(la.x, la.z)
-                        let stride = simd_length(curXZ - prevXZ)
-                        strideLengths.append(stride)
-                        updateStride()
-                    }
+        // MARK: Private — skeleton visualization
+
+        private func updateSkeletonOverlay(joints: [JointName: SIMD3<Float>]) {
+            for (joint, entity) in jointEntities {
+                if let pos = joints[joint] {
+                    entity.position = pos
+                    entity.isEnabled = true
+                } else {
+                    entity.isEnabled = false
                 }
-                lastLeftStepTime = timestamp
-                lastLeftFootXZ = SIMD2<Float>(la.x, la.z)
             }
 
-            if isLocalMin(lastRightAnkleYs) {
-                if let prev = lastRightStepTime {
-                    let _ = timestamp - prev
-                    stepTimestamps.append(timestamp)
-                    updateCadence()
-                    if let prevXZ = lastRightFootXZ {
-                        let curXZ = SIMD2<Float>(ra.x, ra.z)
-                        let stride = simd_length(curXZ - prevXZ)
-                        strideLengths.append(stride)
-                        updateStride()
-                    }
+            for (entity, from, to) in boneEntities {
+                guard let fromPos = joints[from], let toPos = joints[to] else {
+                    entity.isEnabled = false
+                    continue
                 }
-                lastRightStepTime = timestamp
-                lastRightFootXZ = SIMD2<Float>(ra.x, ra.z)
-            }
-        }
+                let mid = (fromPos + toPos) / 2
+                let diff = toPos - fromPos
+                let length = simd_length(diff)
 
-        private func updateCadence() {
-            let window: CFTimeInterval = 10
-            guard let latest = stepTimestamps.last else { return }
-            let recent = stepTimestamps.filter { latest - $0 <= window }
-            let stepsPerSecond = Double(recent.count) / window
-            let spm = stepsPerSecond * 60.0
-            DispatchQueue.main.async {
-                self.metrics.cadenceSPM = spm
-            }
-        }
+                guard length > 0.001 else {
+                    entity.isEnabled = false
+                    continue
+                }
 
-        private func updateStride() {
-            let n = max(1, strideLengths.count)
-            let avg = strideLengths.reduce(0, +) / Float(n)
-            DispatchQueue.main.async {
-                self.metrics.avgStrideLengthM = Double(avg)
+                entity.position = mid
+                entity.scale = SIMD3<Float>(0.008, 0.008, length)
+
+                // Orient cylinder along the bone direction
+                let dir = simd_normalize(diff)
+                let defaultDir = SIMD3<Float>(0, 0, 1) // box extends along Z
+                let cross = simd_cross(defaultDir, dir)
+                let dot = simd_dot(defaultDir, dir)
+                if simd_length(cross) > 0.0001 {
+                    let angle = acos(simd_clamp(dot, -1, 1))
+                    entity.orientation = simd_quatf(angle: angle, axis: simd_normalize(cross))
+                } else if dot < 0 {
+                    entity.orientation = simd_quatf(angle: .pi, axis: SIMD3<Float>(0, 1, 0))
+                } else {
+                    entity.orientation = simd_quatf(ix: 0, iy: 0, iz: 0, r: 1)
+                }
+                entity.isEnabled = true
             }
         }
     }

@@ -6,12 +6,213 @@
 //
 
 import Testing
+import simd
 @testable import Andernet_Posture
 
-struct Andernet_PostureTests {
+// MARK: - PostureAnalyzer Tests
 
-    @Test func example() async throws {
-        // Write your test here and use APIs like `#expect(...)` to check expected conditions.
+struct PostureAnalyzerTests {
+
+    let analyzer = DefaultPostureAnalyzer()
+
+    @Test func perfectlyUprightPosture() async throws {
+        // Hips at origin, neck directly above → 0° lean
+        let joints: [JointName: SIMD3<Float>] = [
+            .root: SIMD3<Float>(0, 0, 0),
+            .neck1: SIMD3<Float>(0, 0.5, 0),
+            .head: SIMD3<Float>(0, 0.7, 0),
+            .spine7: SIMD3<Float>(0, 0.45, 0)
+        ]
+        let metrics = analyzer.analyze(joints: joints)
+        #expect(metrics != nil)
+        #expect(metrics!.trunkLeanDeg < 1.0, "Upright posture should have near-zero trunk lean")
+        #expect(metrics!.frameScore > 90, "Upright posture should score high")
     }
 
+    @Test func leaningForward15Degrees() async throws {
+        // ~15° forward lean → poor posture threshold
+        let rad = Float(15 * Double.pi / 180)
+        let joints: [JointName: SIMD3<Float>] = [
+            .root: SIMD3<Float>(0, 0, 0),
+            .neck1: SIMD3<Float>(sin(rad) * 0.5, cos(rad) * 0.5, 0)
+        ]
+        let metrics = analyzer.analyze(joints: joints)
+        #expect(metrics != nil)
+        #expect(abs(metrics!.trunkLeanDeg - 15) < 1.5, "Should detect ~15° lean")
+    }
+
+    @Test func sessionScoreFromSeries() async throws {
+        // Series of mostly-good leans
+        let trunkLeans = [2.0, 3.0, 4.0, 2.5, 3.5, 5.0, 2.0]
+        let lateralLeans = [1.0, 1.5, 0.5, 1.2, 0.8, 1.0, 0.7]
+        let score = analyzer.computeSessionScore(trunkLeans: trunkLeans, lateralLeans: lateralLeans)
+        #expect(score > 70, "Mostly upright session should score well")
+        #expect(score <= 100, "Score should not exceed 100")
+    }
+
+    @Test func sessionScoreEmpty() async throws {
+        let score = analyzer.computeSessionScore(trunkLeans: [], lateralLeans: [])
+        #expect(score == 0, "Empty session should score 0")
+    }
+
+    @Test func missingJointsReturnsNil() async throws {
+        let joints: [JointName: SIMD3<Float>] = [
+            .leftHand: SIMD3<Float>(0, 0, 0)
+        ]
+        let metrics = analyzer.analyze(joints: joints)
+        #expect(metrics == nil, "Should return nil without required joints")
+    }
+}
+
+// MARK: - GaitAnalyzer Tests
+
+struct GaitAnalyzerTests {
+
+    @Test func resetClearsState() async throws {
+        let analyzer = DefaultGaitAnalyzer()
+
+        // Process a few frames
+        let joints: [JointName: SIMD3<Float>] = [
+            .leftFoot: SIMD3<Float>(0, 0.1, 0),
+            .rightFoot: SIMD3<Float>(0.3, 0.1, 0)
+        ]
+        _ = analyzer.processFrame(joints: joints, timestamp: 0)
+        _ = analyzer.processFrame(joints: joints, timestamp: 0.033)
+
+        analyzer.reset()
+
+        // After reset, metrics should be zeroed
+        let metrics = analyzer.processFrame(joints: joints, timestamp: 1.0)
+        #expect(metrics.cadenceSPM == 0, "Cadence should be 0 after reset")
+        #expect(metrics.avgStrideLengthM == 0, "Stride should be 0 after reset")
+    }
+
+    @Test func noFeetReturnsZeroMetrics() async throws {
+        let analyzer = DefaultGaitAnalyzer()
+        let joints: [JointName: SIMD3<Float>] = [
+            .root: SIMD3<Float>(0, 0, 0)
+        ]
+        let metrics = analyzer.processFrame(joints: joints, timestamp: 0)
+        #expect(metrics.cadenceSPM == 0)
+        #expect(metrics.avgStrideLengthM == 0)
+        #expect(metrics.stepDetected == nil)
+    }
+}
+
+// MARK: - GaitSession Model Tests
+
+struct GaitSessionModelTests {
+
+    @Test func formattedDuration() async throws {
+        let session = GaitSession(duration: 125) // 2:05
+        #expect(session.formattedDuration == "2:05")
+    }
+
+    @Test func postureLabelMappings() async throws {
+        let excellent = GaitSession(postureScore: 85)
+        #expect(excellent.postureLabel == "Excellent")
+
+        let good = GaitSession(postureScore: 70)
+        #expect(good.postureLabel == "Good")
+
+        let fair = GaitSession(postureScore: 50)
+        #expect(fair.postureLabel == "Fair")
+
+        let poor = GaitSession(postureScore: 30)
+        #expect(poor.postureLabel == "Needs Improvement")
+
+        let none = GaitSession()
+        #expect(none.postureLabel == "N/A")
+    }
+
+    @Test func frameEncodeDecodeRoundTrip() async throws {
+        let frames = [
+            BodyFrame(
+                timestamp: 0.0,
+                joints: [.root: SIMD3<Float>(0, 0, 0), .neck1: SIMD3<Float>(0, 0.5, 0)],
+                trunkLeanDeg: 3.5,
+                lateralLeanDeg: 1.2,
+                cadenceSPM: 110,
+                avgStrideLengthM: 0.7
+            )
+        ]
+
+        let data = GaitSession.encode(frames: frames)
+        #expect(data != nil, "Encoding should succeed")
+
+        let session = GaitSession(framesData: data)
+        let decoded = session.decodedFrames
+        #expect(decoded.count == 1)
+        #expect(abs(decoded[0].trunkLeanDeg - 3.5) < 0.01)
+        #expect(abs(decoded[0].cadenceSPM - 110) < 0.01)
+    }
+
+    @Test func stepEventEncodeDecodeRoundTrip() async throws {
+        let steps = [
+            StepEvent(timestamp: 1.0, foot: .left, positionX: 0.5, positionZ: 0.3, strideLengthM: 0.65),
+            StepEvent(timestamp: 1.5, foot: .right, positionX: 0.8, positionZ: 0.6, strideLengthM: 0.70)
+        ]
+
+        let data = GaitSession.encode(stepEvents: steps)
+        #expect(data != nil)
+
+        let session = GaitSession(stepEventsData: data)
+        let decoded = session.decodedStepEvents
+        #expect(decoded.count == 2)
+        #expect(decoded[0].foot == .left)
+        #expect(decoded[1].foot == .right)
+        #expect(abs(decoded[0].strideLengthM! - 0.65) < 0.01)
+    }
+}
+
+// MARK: - SessionRecorder Tests
+
+struct SessionRecorderTests {
+
+    @Test func stateTransitions() async throws {
+        let recorder = DefaultSessionRecorder()
+        #expect(recorder.state == .idle)
+
+        recorder.startCalibration()
+        #expect(recorder.state == .calibrating)
+
+        recorder.startRecording()
+        #expect(recorder.state == .recording)
+
+        recorder.pause()
+        #expect(recorder.state == .paused)
+
+        recorder.resume()
+        #expect(recorder.state == .recording)
+
+        recorder.stop()
+        #expect(recorder.state == .finished)
+
+        recorder.reset()
+        #expect(recorder.state == .idle)
+    }
+
+    @Test func onlyRecordsWhileRecording() async throws {
+        let recorder = DefaultSessionRecorder()
+        let frame = BodyFrame(
+            timestamp: 0, joints: [:],
+            trunkLeanDeg: 0, lateralLeanDeg: 0,
+            cadenceSPM: 0, avgStrideLengthM: 0
+        )
+
+        // Should not record in idle state
+        recorder.recordFrame(frame)
+        #expect(recorder.frameCount == 0)
+
+        // Start recording
+        recorder.startCalibration()
+        recorder.startRecording()
+        recorder.recordFrame(frame)
+        #expect(recorder.frameCount == 1)
+
+        // Pause — should not record
+        recorder.pause()
+        recorder.recordFrame(frame)
+        #expect(recorder.frameCount == 1)
+    }
 }
