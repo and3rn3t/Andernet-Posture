@@ -159,10 +159,10 @@ struct AccessibleCaptureOverlay: ViewModifier {
 
     private func scoreCategory(for score: Double) -> String {
         switch score {
-        case 80...: return "excellent"
-        case 60..<80: return "good"
-        case 40..<60: return "fair"
-        default: return "needs improvement"
+        case 80...: return String(localized: "excellent")
+        case 60..<80: return String(localized: "good")
+        case 40..<60: return String(localized: "fair")
+        default: return String(localized: "needs improvement")
         }
     }
 }

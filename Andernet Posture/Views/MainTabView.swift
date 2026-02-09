@@ -18,6 +18,19 @@ struct MainTabView: View {
         case clinicalTests = "Tests"
         case settings = "Settings"
 
+        /// Localized display name for the tab. Enum raw values are not
+        /// auto-extracted by the compiler, so we use String(localized:)
+        /// to make tab labels appear in the String Catalog.
+        var localizedName: String {
+            switch self {
+            case .dashboard:     return String(localized: "Dashboard")
+            case .sessions:      return String(localized: "Sessions")
+            case .capture:       return String(localized: "Capture")
+            case .clinicalTests: return String(localized: "Tests")
+            case .settings:      return String(localized: "Settings")
+            }
+        }
+
         var icon: String {
             switch self {
             case .dashboard: return "chart.bar.fill"
@@ -31,23 +44,23 @@ struct MainTabView: View {
 
     var body: some View {
         TabView(selection: $selectedTab) {
-            Tab(AppTab.dashboard.rawValue, systemImage: AppTab.dashboard.icon, value: .dashboard) {
+            Tab(AppTab.dashboard.localizedName, systemImage: AppTab.dashboard.icon, value: .dashboard) {
                 DashboardView()
             }
 
-            Tab(AppTab.sessions.rawValue, systemImage: AppTab.sessions.icon, value: .sessions) {
+            Tab(AppTab.sessions.localizedName, systemImage: AppTab.sessions.icon, value: .sessions) {
                 SessionListView()
             }
 
-            Tab(AppTab.capture.rawValue, systemImage: AppTab.capture.icon, value: .capture) {
+            Tab(AppTab.capture.localizedName, systemImage: AppTab.capture.icon, value: .capture) {
                 PostureGaitCaptureView()
             }
 
-            Tab(AppTab.clinicalTests.rawValue, systemImage: AppTab.clinicalTests.icon, value: .clinicalTests) {
+            Tab(AppTab.clinicalTests.localizedName, systemImage: AppTab.clinicalTests.icon, value: .clinicalTests) {
                 ClinicalTestView()
             }
 
-            Tab(AppTab.settings.rawValue, systemImage: AppTab.settings.icon, value: .settings) {
+            Tab(AppTab.settings.localizedName, systemImage: AppTab.settings.icon, value: .settings) {
                 SettingsView()
             }
         }

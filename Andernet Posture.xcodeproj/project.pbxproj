@@ -206,6 +206,7 @@
 			knownRegions = (
 				en,
 				Base,
+				es,
 			);
 			mainGroup = 3D93D5932F39439E00291F26;
 			minimizedProjectReferenceProxies = 1;

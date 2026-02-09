@@ -1,0 +1,974 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+
+    "N/A" : {
+      "extractionState" : "manual",
+      "comment" : "Displayed when no posture score is available",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "N/D"
+          }
+        }
+      }
+    },
+    "Excellent" : {
+      "extractionState" : "manual",
+      "comment" : "Posture score label for scores 80-100",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Excelente"
+          }
+        }
+      }
+    },
+    "Good" : {
+      "extractionState" : "manual",
+      "comment" : "Posture score label for scores 60-79",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bueno"
+          }
+        }
+      }
+    },
+    "Fair" : {
+      "extractionState" : "manual",
+      "comment" : "Posture score label for scores 40-59",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Regular"
+          }
+        }
+      }
+    },
+    "Needs Improvement" : {
+      "extractionState" : "manual",
+      "comment" : "Posture score label for scores below 40",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Necesita Mejorar"
+          }
+        }
+      }
+    },
+    "No data" : {
+      "extractionState" : "manual",
+      "comment" : "Displayed when no session data is available",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sin datos"
+          }
+        }
+      }
+    },
+
+    "Low" : {
+      "extractionState" : "manual",
+      "comment" : "Fall risk level — low",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bajo"
+          }
+        }
+      }
+    },
+    "Moderate" : {
+      "extractionState" : "manual",
+      "comment" : "Fall risk level — moderate",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Moderado"
+          }
+        }
+      }
+    },
+    "High" : {
+      "extractionState" : "manual",
+      "comment" : "Fall risk level — high",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alto"
+          }
+        }
+      }
+    },
+
+    "Dashboard" : {
+      "extractionState" : "manual",
+      "comment" : "Tab bar label",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tablero"
+          }
+        }
+      }
+    },
+    "Sessions" : {
+      "extractionState" : "manual",
+      "comment" : "Tab bar label",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sesiones"
+          }
+        }
+      }
+    },
+    "Capture" : {
+      "extractionState" : "manual",
+      "comment" : "Tab bar label and settings section header",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Captura"
+          }
+        }
+      }
+    },
+    "Tests" : {
+      "extractionState" : "manual",
+      "comment" : "Tab bar label for clinical tests",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pruebas"
+          }
+        }
+      }
+    },
+    "Settings" : {
+      "extractionState" : "manual",
+      "comment" : "Tab bar label and navigation title",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajustes"
+          }
+        }
+      }
+    },
+
+    "Ideal" : {
+      "extractionState" : "manual",
+      "comment" : "Kendall postural classification type",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ideal"
+          }
+        }
+      }
+    },
+    "Kyphosis-Lordosis" : {
+      "extractionState" : "manual",
+      "comment" : "Kendall postural classification type",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cifosis-Lordosis"
+          }
+        }
+      }
+    },
+    "Flat Back" : {
+      "extractionState" : "manual",
+      "comment" : "Kendall postural classification type",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Espalda Plana"
+          }
+        }
+      }
+    },
+    "Sway Back" : {
+      "extractionState" : "manual",
+      "comment" : "Kendall postural classification type",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Espalda Oscilante"
+          }
+        }
+      }
+    },
+    "Kypho-Lord" : {
+      "extractionState" : "manual",
+      "comment" : "Abbreviated Kendall postural type for compact UI",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cifo-Lord"
+          }
+        }
+      }
+    },
+    "Normal" : {
+      "extractionState" : "manual",
+      "comment" : "Gait pattern classification — normal gait",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Normal"
+          }
+        }
+      }
+    },
+    "Antalgic" : {
+      "extractionState" : "manual",
+      "comment" : "Gait pattern classification — pain-avoiding gait",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Antálgica"
+          }
+        }
+      }
+    },
+    "Trendelenburg" : {
+      "extractionState" : "manual",
+      "comment" : "Gait pattern classification — hip weakness gait",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Trendelenburg"
+          }
+        }
+      }
+    },
+    "Festinating" : {
+      "extractionState" : "manual",
+      "comment" : "Gait pattern classification — shuffling gait",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Festinante"
+          }
+        }
+      }
+    },
+    "Circumduction" : {
+      "extractionState" : "manual",
+      "comment" : "Gait pattern classification — swinging leg outward",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Circunducción"
+          }
+        }
+      }
+    },
+    "Ataxic" : {
+      "extractionState" : "manual",
+      "comment" : "Gait pattern classification — uncoordinated gait",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Atáxica"
+          }
+        }
+      }
+    },
+    "Waddling" : {
+      "extractionState" : "manual",
+      "comment" : "Gait pattern classification — side-to-side gait",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cadeante"
+          }
+        }
+      }
+    },
+    "Steppage" : {
+      "extractionState" : "manual",
+      "comment" : "Gait pattern classification — high-stepping gait",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Estepaje"
+          }
+        }
+      }
+    },
+    "Stiff Knee" : {
+      "extractionState" : "manual",
+      "comment" : "Gait pattern classification — stiff knee gait",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rodilla Rígida"
+          }
+        }
+      }
+    },
+
+    "Time for a Posture Check" : {
+      "extractionState" : "manual",
+      "comment" : "Daily reminder notification title",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hora de Verificar tu Postura"
+          }
+        }
+      }
+    },
+    "Take a few minutes to capture a session and track your posture health." : {
+      "extractionState" : "manual",
+      "comment" : "Daily reminder notification body",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tómate unos minutos para capturar una sesión y monitorear tu salud postural."
+          }
+        }
+      }
+    },
+    "%@ Alert" : {
+      "extractionState" : "manual",
+      "comment" : "Decline alert notification title — %@ is the metric name",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alerta de %@"
+          }
+        }
+      }
+    },
+
+    "Normal range" : {
+      "extractionState" : "manual",
+      "comment" : "Clinical severity description for VoiceOver — within normal limits",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rango normal"
+          }
+        }
+      }
+    },
+    "Mildly elevated" : {
+      "extractionState" : "manual",
+      "comment" : "Clinical severity description for VoiceOver — slightly outside normal",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ligeramente elevado"
+          }
+        }
+      }
+    },
+    "Moderately abnormal" : {
+      "extractionState" : "manual",
+      "comment" : "Clinical severity description for VoiceOver — moderately abnormal",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Moderadamente anormal"
+          }
+        }
+      }
+    },
+    "Severely abnormal" : {
+      "extractionState" : "manual",
+      "comment" : "Clinical severity description for VoiceOver — severely abnormal",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Severamente anormal"
+          }
+        }
+      }
+    },
+    "This measurement is within normal limits." : {
+      "extractionState" : "manual",
+      "comment" : "VoiceOver accessibility hint for normal severity",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esta medición está dentro de los límites normales."
+          }
+        }
+      }
+    },
+    "This measurement is slightly outside normal range. Monitoring recommended." : {
+      "extractionState" : "manual",
+      "comment" : "VoiceOver accessibility hint for mild severity",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esta medición está ligeramente fuera del rango normal. Se recomienda monitoreo."
+          }
+        }
+      }
+    },
+    "This measurement is moderately abnormal. Consider clinical follow-up." : {
+      "extractionState" : "manual",
+      "comment" : "VoiceOver accessibility hint for moderate severity",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esta medición es moderadamente anormal. Considere seguimiento clínico."
+          }
+        }
+      }
+    },
+    "This measurement is severely abnormal. Clinical evaluation recommended." : {
+      "extractionState" : "manual",
+      "comment" : "VoiceOver accessibility hint for severe severity",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esta medición es severamente anormal. Se recomienda evaluación clínica."
+          }
+        }
+      }
+    },
+    "improving" : {
+      "extractionState" : "manual",
+      "comment" : "Score trend description for VoiceOver",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "mejorando"
+          }
+        }
+      }
+    },
+    "declining" : {
+      "extractionState" : "manual",
+      "comment" : "Score trend description for VoiceOver",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "declinando"
+          }
+        }
+      }
+    },
+    "stable" : {
+      "extractionState" : "manual",
+      "comment" : "Score trend description for VoiceOver",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "estable"
+          }
+        }
+      }
+    },
+    "excellent" : {
+      "extractionState" : "manual",
+      "comment" : "Score category for VoiceOver — lowercase",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "excelente"
+          }
+        }
+      }
+    },
+    "good" : {
+      "extractionState" : "manual",
+      "comment" : "Score category for VoiceOver — lowercase",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "bueno"
+          }
+        }
+      }
+    },
+    "fair" : {
+      "extractionState" : "manual",
+      "comment" : "Score category for VoiceOver — lowercase",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "regular"
+          }
+        }
+      }
+    },
+    "needs improvement" : {
+      "extractionState" : "manual",
+      "comment" : "Score category for VoiceOver — lowercase",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "necesita mejorar"
+          }
+        }
+      }
+    },
+
+    "Posture Improving" : {
+      "extractionState" : "manual",
+      "comment" : "Insight card title — posture trend improving",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Postura Mejorando"
+          }
+        }
+      }
+    },
+    "Posture Declining" : {
+      "extractionState" : "manual",
+      "comment" : "Insight card title — posture trend declining",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Postura Declinando"
+          }
+        }
+      }
+    },
+    "Low Walking Speed" : {
+      "extractionState" : "manual",
+      "comment" : "Insight card title — below sarcopenia threshold",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Velocidad de Marcha Baja"
+          }
+        }
+      }
+    },
+    "Walking Speed Declining" : {
+      "extractionState" : "manual",
+      "comment" : "Insight card title — walking speed trend",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Velocidad de Marcha Declinando"
+          }
+        }
+      }
+    },
+    "Forward Head Posture Increasing" : {
+      "extractionState" : "manual",
+      "comment" : "Insight card title — CVA deterioration",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Postura de Cabeza Adelantada Aumentando"
+          }
+        }
+      }
+    },
+    "Head Posture Improving" : {
+      "extractionState" : "manual",
+      "comment" : "Insight card title — CVA improvement",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Postura de Cabeza Mejorando"
+          }
+        }
+      }
+    },
+    "Fall Risk Escalated" : {
+      "extractionState" : "manual",
+      "comment" : "Insight card title — fall risk moved to high",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Riesgo de Caída Elevado"
+          }
+        }
+      }
+    },
+    "Fall Risk Increasing" : {
+      "extractionState" : "manual",
+      "comment" : "Insight card title — fall risk trending up",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Riesgo de Caída Aumentando"
+          }
+        }
+      }
+    },
+    "Early Fatigue Pattern" : {
+      "extractionState" : "manual",
+      "comment" : "Insight card title — fatigue onset detected",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Patrón de Fatiga Temprana"
+          }
+        }
+      }
+    },
+    "Session Frequency" : {
+      "extractionState" : "manual",
+      "comment" : "Insight card title — session tracking frequency",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Frecuencia de Sesiones"
+          }
+        }
+      }
+    },
+    "Stride Asymmetry Detected" : {
+      "extractionState" : "manual",
+      "comment" : "Insight card title — left-right stride imbalance",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Asimetría de Zancada Detectada"
+          }
+        }
+      }
+    },
+    "Ergonomic Risk Improved" : {
+      "extractionState" : "manual",
+      "comment" : "Insight card title — REBA score improved",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Riesgo Ergonómico Mejorado"
+          }
+        }
+      }
+    },
+    "Ergonomic Risk Increased" : {
+      "extractionState" : "manual",
+      "comment" : "Insight card title — REBA score worsened",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Riesgo Ergonómico Aumentado"
+          }
+        }
+      }
+    },
+    "Exercise Recommendation" : {
+      "extractionState" : "manual",
+      "comment" : "Insight card title — exercise recommendation based on CVA",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recomendación de Ejercicio"
+          }
+        }
+      }
+    },
+    "Posture Tip" : {
+      "extractionState" : "manual",
+      "comment" : "Insight card title — mild posture advice",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Consejo Postural"
+          }
+        }
+      }
+    },
+    "Milestone Reached!" : {
+      "extractionState" : "manual",
+      "comment" : "Insight card title — session count milestone",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¡Meta Alcanzada!"
+          }
+        }
+      }
+    },
+    "Significant Sagittal Imbalance" : {
+      "extractionState" : "manual",
+      "comment" : "Insight card title — severe SVA offset",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Desequilibrio Sagital Significativo"
+          }
+        }
+      }
+    },
+    "Forward Sagittal Shift" : {
+      "extractionState" : "manual",
+      "comment" : "Insight card title — moderate SVA offset",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Desplazamiento Sagital Anterior"
+          }
+        }
+      }
+    },
+    "Increased Thoracic Kyphosis" : {
+      "extractionState" : "manual",
+      "comment" : "Insight card title — excessive upper back rounding",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cifosis Torácica Aumentada"
+          }
+        }
+      }
+    },
+    "Reduced Thoracic Kyphosis" : {
+      "extractionState" : "manual",
+      "comment" : "Insight card title — flattened upper back",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cifosis Torácica Reducida"
+          }
+        }
+      }
+    },
+    "Shoulder Level Imbalance" : {
+      "extractionState" : "manual",
+      "comment" : "Insight card title — shoulder height asymmetry",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Desequilibrio de Nivel de Hombros"
+          }
+        }
+      }
+    },
+    "Pelvic Obliquity Detected" : {
+      "extractionState" : "manual",
+      "comment" : "Insight card title — pelvic tilt asymmetry",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Oblicuidad Pélvica Detectada"
+          }
+        }
+      }
+    },
+    "Excessive Trunk Lean" : {
+      "extractionState" : "manual",
+      "comment" : "Insight card title — forward trunk lean",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Inclinación Excesiva del Tronco"
+          }
+        }
+      }
+    },
+
+    "Welcome to Andernet Posture" : {
+      "comment" : "Onboarding page 1 title",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bienvenido a Andernet Posture"
+          }
+        }
+      }
+    },
+    "Your personal posture and gait analysis companion" : {
+      "comment" : "Onboarding page 1 subtitle",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tu compañero personal de análisis de postura y marcha"
+          }
+        }
+      }
+    },
+    "How It Works" : {
+      "comment" : "Onboarding page 2 title",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cómo Funciona"
+          }
+        }
+      }
+    },
+    "Stand in view of your camera and we track 91 body joints in real-time using advanced AR body tracking" : {
+      "comment" : "Onboarding page 2 subtitle",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ponte frente a la cámara y rastreamos 91 articulaciones corporales en tiempo real usando seguimiento AR avanzado"
+          }
+        }
+      }
+    },
+    "Clinical Metrics" : {
+      "comment" : "Onboarding page 3 title",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Métricas Clínicas"
+          }
+        }
+      }
+    },
+    "Medical-grade measurements including craniovertebral angle, gait symmetry, fall risk, and 40+ clinical parameters" : {
+      "comment" : "Onboarding page 3 subtitle",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mediciones de grado médico incluyendo ángulo craneovertebral, simetría de marcha, riesgo de caída, y más de 40 parámetros clínicos"
+          }
+        }
+      }
+    },
+    "Your Privacy Matters" : {
+      "comment" : "Onboarding page 4 title",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tu Privacidad Importa"
+          }
+        }
+      }
+    },
+    "All data stays on your device. No data is sent to any server. HealthKit sync is optional." : {
+      "comment" : "Onboarding page 4 subtitle",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Todos los datos permanecen en tu dispositivo. No se envían datos a ningún servidor. La sincronización con HealthKit es opcional."
+          }
+        }
+      }
+    },
+    "Get Started" : {
+      "comment" : "Onboarding final page title",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Comenzar"
+          }
+        }
+      }
+    },
+    "Accept the clinical disclaimer to begin using Andernet Posture." : {
+      "comment" : "Onboarding final page instruction",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Acepta el descargo clínico para comenzar a usar Andernet Posture."
+          }
+        }
+      }
+    },
+    "Accept & Get Started" : {
+      "comment" : "Onboarding accept button",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aceptar y Comenzar"
+          }
+        }
+      }
+    },
+    "Skip" : {
+      "comment" : "Onboarding skip button",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Omitir"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

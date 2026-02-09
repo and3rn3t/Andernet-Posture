@@ -30,10 +30,10 @@ extension ClinicalSeverity {
     /// Natural-language description suitable for VoiceOver.
     var accessibilityDescription: String {
         switch self {
-        case .normal:   return "Normal range"
-        case .mild:     return "Mildly elevated"
-        case .moderate: return "Moderately abnormal"
-        case .severe:   return "Severely abnormal"
+        case .normal:   return String(localized: "Normal range")
+        case .mild:     return String(localized: "Mildly elevated")
+        case .moderate: return String(localized: "Moderately abnormal")
+        case .severe:   return String(localized: "Severely abnormal")
         }
     }
 
@@ -118,13 +118,13 @@ struct ClinicalMetricAccessibility: ViewModifier {
         guard let severity else { return "" }
         switch severity {
         case .normal:
-            return "This measurement is within normal limits."
+            return String(localized: "This measurement is within normal limits.")
         case .mild:
-            return "This measurement is slightly outside normal range. Monitoring recommended."
+            return String(localized: "This measurement is slightly outside normal range. Monitoring recommended.")
         case .moderate:
-            return "This measurement is moderately abnormal. Consider clinical follow-up."
+            return String(localized: "This measurement is moderately abnormal. Consider clinical follow-up.")
         case .severe:
-            return "This measurement is severely abnormal. Clinical evaluation recommended."
+            return String(localized: "This measurement is severely abnormal. Clinical evaluation recommended.")
         }
     }
 }
@@ -229,9 +229,9 @@ struct AccessibleScoreView: View {
 
         var description: String {
             switch self {
-            case .improving: return "improving"
-            case .declining: return "declining"
-            case .stable:    return "stable"
+            case .improving: return String(localized: "improving")
+            case .declining: return String(localized: "declining")
+            case .stable:    return String(localized: "stable")
             }
         }
 
@@ -247,10 +247,10 @@ struct AccessibleScoreView: View {
     private var category: String {
         let normalized = score / maximumScore * 100
         switch normalized {
-        case 80...: return "excellent"
-        case 60..<80: return "good"
-        case 40..<60: return "fair"
-        default: return "needs improvement"
+        case 80...: return String(localized: "excellent")
+        case 60..<80: return String(localized: "good")
+        case 40..<60: return String(localized: "fair")
+        default: return String(localized: "needs improvement")
         }
     }
 

@@ -61,8 +61,8 @@ final class DefaultNotificationService: NotificationService {
         center.removePendingNotificationRequests(withIdentifiers: [Identifiers.dailyReminder])
 
         let content = UNMutableNotificationContent()
-        content.title = "Time for a Posture Check"
-        content.body = "Take a few minutes to capture a session and track your posture health."
+        content.title = String(localized: "Time for a Posture Check")
+        content.body = String(localized: "Take a few minutes to capture a session and track your posture health.")
         content.sound = .default
         content.categoryIdentifier = "sessionReminder"
 
@@ -98,7 +98,7 @@ final class DefaultNotificationService: NotificationService {
 
     func sendDeclineAlert(metric: String, message: String) {
         let content = UNMutableNotificationContent()
-        content.title = "\(metric) Alert"
+        content.title = String(localized: "\(metric) Alert")
         content.body = message
         content.sound = .default
         content.categoryIdentifier = "declineAlert"

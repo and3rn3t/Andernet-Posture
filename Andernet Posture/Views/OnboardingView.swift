@@ -166,8 +166,8 @@ struct OnboardingView: View {
 
 private struct OnboardingPageView: View {
     let icon: String
-    let title: String
-    let subtitle: String
+    let title: LocalizedStringKey
+    let subtitle: LocalizedStringKey
 
     @State private var appeared = false
 

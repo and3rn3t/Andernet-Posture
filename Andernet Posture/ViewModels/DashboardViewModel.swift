@@ -55,18 +55,25 @@ final class DashboardViewModel {
 
     // Quick posture summary
     var postureLabel: String {
-        guard let score = recentPostureScore else { return "No data" }
+        guard let score = recentPostureScore else { return String(localized: "No data") }
         switch score {
-        case 80...100: return "Excellent"
-        case 60..<80: return "Good"
-        case 40..<60: return "Fair"
-        default: return "Needs Improvement"
+        case 80...100: return String(localized: "Excellent")
+        case 60..<80:  return String(localized: "Good")
+        case 40..<60:  return String(localized: "Fair")
+        default:       return String(localized: "Needs Improvement")
         }
     }
 
     var fallRiskLabel: String {
         guard let level = recentFallRiskLevel else { return "—" }
-        return level.capitalized
+        // Map stored raw values to localized display strings.
+        // Using .capitalized would produce English-only output.
+        switch level {
+        case "low":      return String(localized: "Low")
+        case "moderate": return String(localized: "Moderate")
+        case "high":     return String(localized: "High")
+        default:         return level.capitalized
+        }
     }
 
     var walkingSpeedLabel: String {
@@ -75,13 +82,12 @@ final class DashboardViewModel {
     }
 
     var formattedTotalTime: String {
-        let minutes = Int(totalWalkingTime) / 60
-        if minutes < 60 {
-            return "\(minutes) min"
-        }
-        let hours = minutes / 60
-        let remaining = minutes % 60
-        return "\(hours)h \(remaining)m"
+        // DateComponentsFormatter respects the user's locale automatically
+        // (e.g., "30 min" in English, "30 min" in Spanish).
+        let formatter = DateComponentsFormatter()
+        formatter.allowedUnits = totalWalkingTime >= 3600 ? [.hour, .minute] : [.minute]
+        formatter.unitsStyle = .abbreviated
+        return formatter.string(from: totalWalkingTime) ?? "0 min"
     }
 
     // MARK: - Refresh

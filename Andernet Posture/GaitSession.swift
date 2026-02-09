@@ -170,12 +170,12 @@ final class GaitSession {
 
     /// Posture score label.
     var postureLabel: String {
-        guard let score = postureScore else { return "N/A" }
+        guard let score = postureScore else { return String(localized: "N/A") }
         switch score {
-        case 80...100: return "Excellent"
-        case 60..<80: return "Good"
-        case 40..<60: return "Fair"
-        default: return "Needs Improvement"
+        case 80...100: return String(localized: "Excellent")
+        case 60..<80:  return String(localized: "Good")
+        case 40..<60:  return String(localized: "Fair")
+        default:       return String(localized: "Needs Improvement")
         }
     }
 }

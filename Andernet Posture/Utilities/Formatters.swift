@@ -25,15 +25,14 @@ extension TimeInterval {
         return String(format: "%d:%02d.%d", minutes, seconds, tenths)
     }
 
-    /// Format as "Hh Mm" for longer durations.
+    /// Format as locale-aware abbreviated duration (e.g., "2h 30m" in English,
+    /// "2 h 30 min" in Spanish). Uses `DateComponentsFormatter` which
+    /// automatically adapts to the user's locale.
     var longForm: String {
-        let total = Int(self)
-        let hours = total / 3600
-        let minutes = (total % 3600) / 60
-        if hours > 0 {
-            return "\(hours)h \(minutes)m"
-        }
-        return "\(minutes) min"
+        let formatter = DateComponentsFormatter()
+        formatter.allowedUnits = self >= 3600 ? [.hour, .minute] : [.minute]
+        formatter.unitsStyle = .abbreviated
+        return formatter.string(from: self) ?? "0 min"
     }
 }
 
