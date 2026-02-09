@@ -139,7 +139,7 @@ enum PerformanceMonitor {
         var averageMs: Double {
             lock.lock()
             defer { lock.unlock() }
-            return count > 0 ? totalMs / Double(count) : 0
+            return !samples.isEmpty ? totalMs / Double(count) : 0
         }
 
         var recentAverageMs: Double {
@@ -358,11 +358,12 @@ enum PerformanceMonitor {
             warningLock.unlock()
 
             if shouldWarn {
-                logger.warning(
-                    "⚠️ \(operation.rawValue, privacy: .public) exceeded budget: " +
-                    "\(String(format: "%.2f", durationMs))ms > \(String(format: "%.1f", budget))ms " +
-                    "(avg: \(String(format: "%.2f", stats.recentAverageMs))ms, p95: \(String(format: "%.2f", stats.p95Ms))ms)"
-                )
+                let dur = String(format: "%.2f", durationMs)
+                let bud = String(format: "%.1f", budget)
+                let avg = String(format: "%.2f", stats.recentAverageMs)
+                let p95 = String(format: "%.2f", stats.p95Ms)
+                // swiftlint:disable:next line_length
+                logger.warning("⚠️ \(operation.rawValue, privacy: .public) exceeded budget: \(dur, privacy: .public)ms > \(bud, privacy: .public)ms (avg: \(avg, privacy: .public)ms, p95: \(p95, privacy: .public)ms)")
             }
         }
     }
