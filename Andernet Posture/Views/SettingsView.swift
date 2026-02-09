@@ -19,10 +19,14 @@ struct SettingsView: View {
     @AppStorage("showNormativeRanges") private var showNormativeRanges = true
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
 
+    @Environment(CloudSyncService.self) private var syncService
+    @Query private var sessions: [GaitSession]
+
     @State private var healthKitService: DefaultHealthKitService? = DefaultHealthKitService()
     @State private var healthKitAuthorized = false
     @State private var showingHealthKitError = false
     @State private var showingDisclaimer = false
+    @State private var iCloudAvailable = true
 
     var body: some View {
         NavigationStack {
@@ -61,18 +65,24 @@ struct SettingsView: View {
                         Text("70–79").tag(75)
                         Text("80+").tag(85)
                     }
+                    .onChange(of: userAge) { _, _ in
+                        KeyValueStoreSync.shared.push(.userAge)
+                    }
 
                     Picker("Biological Sex", selection: $userSex) {
                         Text("Not Set").tag("notSet")
                         Text("Male").tag("male")
                         Text("Female").tag("female")
                     }
+                    .onChange(of: userSex) { _, _ in
+                        KeyValueStoreSync.shared.push(.userSex)
+                    }
 
                     Toggle("Show Normative Ranges", systemImage: "chart.bar.doc.horizontal", isOn: $showNormativeRanges)
                 } header: {
                     Text("Demographics")
                 } footer: {
-                    Text("Age and sex are used to display age-stratified normative ranges for clinical measurements. This data stays on-device.")
+                    Text("Age and sex are used to display age-stratified normative ranges for clinical measurements. Demographics sync across your devices via iCloud.")
                 }
 
                 // MARK: - Capture Settings
@@ -109,6 +119,51 @@ struct SettingsView: View {
                         Label("Connected", systemImage: "checkmark.circle.fill")
                             .foregroundStyle(.green)
                     }
+                }
+
+                // MARK: - iCloud Sync
+                Section {
+                    HStack {
+                        Label("iCloud Sync", systemImage: syncService.status.systemImage)
+                            .foregroundStyle(iCloudAvailable ? .primary : .secondary)
+                        Spacer()
+                        Text(syncService.status.label)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    if let lastSync = syncService.lastSyncDate {
+                        LabeledContent("Last Synced") {
+                            Text(lastSync, style: .relative)
+                                .foregroundStyle(.secondary)
+                        }
+                        .font(.caption)
+                    }
+
+                    if !iCloudAvailable {
+                        Label {
+                            Text("Sign in to iCloud in Settings to enable sync.")
+                                .font(.caption)
+                        } icon: {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundStyle(.orange)
+                        }
+                    }
+
+                    let estimatedMB = estimatedDataSizeMB
+                    if estimatedMB > 50 {
+                        Label {
+                            Text("Your session data is approximately \(String(format: "%.0f", estimatedMB)) MB. Large datasets may use significant iCloud storage.")
+                                .font(.caption)
+                        } icon: {
+                            Image(systemName: "externaldrive.badge.icloud")
+                                .foregroundStyle(.orange)
+                        }
+                    }
+                } header: {
+                    Text("iCloud")
+                } footer: {
+                    Text("Sessions, goals, and demographics sync automatically across your devices via iCloud.")
                 }
 
                 // MARK: - Clinical Tools
@@ -215,7 +270,26 @@ struct SettingsView: View {
             if !disclaimerAccepted {
                 showingDisclaimer = true
             }
+
+            Task {
+                iCloudAvailable = await syncService.checkAccountStatus()
+            }
         }
+    }
+
+    // MARK: - Helpers
+
+    /// Rough estimate of total session data size for the iCloud storage warning.
+    private var estimatedDataSizeMB: Double {
+        let totalBytes = sessions.reduce(0) { sum, session in
+            let frameBytes = session.framesData?.count ?? 0
+            let stepBytes  = session.stepEventsData?.count ?? 0
+            let motionBytes = session.motionFramesData?.count ?? 0
+            let painBytes  = session.painRiskAlertsData?.count ?? 0
+            // ~500 bytes overhead for scalar properties
+            return sum + frameBytes + stepBytes + motionBytes + painBytes + 500
+        }
+        return Double(totalBytes) / 1_048_576.0
     }
 
     private func requestHealthKit() {
@@ -389,5 +463,6 @@ struct DataManagementView: View {
 
 #Preview {
     SettingsView()
-        .modelContainer(for: GaitSession.self, inMemory: true)
+        .modelContainer(for: [GaitSession.self, UserGoals.self], inMemory: true)
+        .environment(CloudSyncService())
 }

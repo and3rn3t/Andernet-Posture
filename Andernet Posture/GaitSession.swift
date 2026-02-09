@@ -3,8 +3,9 @@ import SwiftData
 
 @Model
 final class GaitSession {
-    var date: Date
-    var duration: TimeInterval
+    // CloudKit requires property-level defaults for all non-optional stored properties.
+    var date: Date = Date.now
+    var duration: TimeInterval = 0
     var averageCadenceSPM: Double?
     var averageStrideLengthM: Double?
     var averageTrunkLeanDeg: Double?

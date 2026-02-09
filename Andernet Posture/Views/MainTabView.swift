@@ -71,5 +71,6 @@ struct MainTabView: View {
 
 #Preview {
     MainTabView()
-        .modelContainer(for: GaitSession.self, inMemory: true)
+        .modelContainer(for: [GaitSession.self, UserGoals.self], inMemory: true)
+        .environment(CloudSyncService())
 }

@@ -9,9 +9,9 @@ import SwiftUI
 import SwiftData
 import Charts
 
-// MARK: - GoalConfig
+// MARK: - GoalConfig (Legacy — kept for migration only)
 
-/// Persisted goal targets with sensible clinical defaults.
+/// Legacy persisted goal targets. Superseded by UserGoals @Model.
 struct GoalConfig: Codable {
     var sessionsPerWeek: Int = 5
     var targetPostureScore: Double = 80
@@ -25,117 +25,145 @@ struct GoalConfig: Codable {
 
 struct GoalsView: View {
     @Query(sort: \GaitSession.date, order: .reverse) private var sessions: [GaitSession]
-    @AppStorage("goalsJSON") private var goalsJSON: String = ""
+    @Query private var allGoals: [UserGoals]
+    @Environment(\.modelContext) private var modelContext
 
-    @State private var goals: GoalConfig = .default
+    /// The single UserGoals record (auto-created on first appearance).
+    private var goals: UserGoals {
+        allGoals.first ?? UserGoals()
+    }
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section("Weekly Targets") {
-                    goalRow(
-                        icon: "calendar.badge.clock",
-                        label: "Sessions / Week",
-                        value: "\(goals.sessionsPerWeek)",
-                        content: {
-                            Stepper(
-                                "\(goals.sessionsPerWeek) sessions",
-                                value: $goals.sessionsPerWeek,
-                                in: 1...14
-                            )
-                            .onChange(of: goals.sessionsPerWeek) { _, _ in saveGoals() }
-                        }
-                    )
-
-                    goalRow(
-                        icon: "figure.stand",
-                        label: "Target Posture Score",
-                        value: String(format: "%.0f", goals.targetPostureScore),
-                        content: {
-                            VStack {
-                                Slider(value: $goals.targetPostureScore, in: 40...100, step: 5)
-                                    .onChange(of: goals.targetPostureScore) { _, _ in saveGoals() }
-                                HStack {
-                                    Text("40").font(.caption2).foregroundStyle(.secondary)
-                                    Spacer()
-                                    Text("100").font(.caption2).foregroundStyle(.secondary)
-                                }
-                            }
-                        }
-                    )
-
-                    goalRow(
-                        icon: "speedometer",
-                        label: "Target Walking Speed",
-                        value: String(format: "%.1f m/s", goals.targetWalkingSpeed),
-                        content: {
-                            VStack {
-                                Slider(value: $goals.targetWalkingSpeed, in: 0.5...2.0, step: 0.1)
-                                    .onChange(of: goals.targetWalkingSpeed) { _, _ in saveGoals() }
-                                HStack {
-                                    Text("0.5").font(.caption2).foregroundStyle(.secondary)
-                                    Spacer()
-                                    Text("2.0 m/s").font(.caption2).foregroundStyle(.secondary)
-                                }
-                            }
-                        }
-                    )
-
-                    goalRow(
-                        icon: "metronome.fill",
-                        label: "Target Cadence",
-                        value: String(format: "%.0f SPM", goals.targetCadence),
-                        content: {
-                            VStack {
-                                Slider(value: $goals.targetCadence, in: 60...160, step: 5)
-                                    .onChange(of: goals.targetCadence) { _, _ in saveGoals() }
-                                HStack {
-                                    Text("60").font(.caption2).foregroundStyle(.secondary)
-                                    Spacer()
-                                    Text("160 SPM").font(.caption2).foregroundStyle(.secondary)
-                                }
-                            }
-                        }
-                    )
-                }
-
-                Section("This Week's Progress") {
-                    progressRingRow(
-                        label: "Sessions",
-                        icon: "calendar.badge.clock",
-                        current: Double(weeklySessionCount),
-                        target: Double(goals.sessionsPerWeek),
-                        color: .blue
-                    )
-
-                    progressRingRow(
-                        label: "Posture Score",
-                        icon: "figure.stand",
-                        current: weeklyAveragePostureScore ?? 0,
-                        target: goals.targetPostureScore,
-                        color: .green
-                    )
-
-                    progressRingRow(
-                        label: "Walking Speed",
-                        icon: "speedometer",
-                        current: weeklyAverageWalkingSpeed ?? 0,
-                        target: goals.targetWalkingSpeed,
-                        color: .teal
-                    )
-
-                    progressRingRow(
-                        label: "Cadence",
-                        icon: "metronome.fill",
-                        current: weeklyAverageCadence ?? 0,
-                        target: goals.targetCadence,
-                        color: .orange
-                    )
-                }
+            if let goals = allGoals.first {
+                goalsForm(goals)
+            } else {
+                ProgressView()
+                    .onAppear { ensureGoalsExist() }
             }
-            .navigationTitle("Goals")
-            .onAppear { loadGoals() }
         }
+    }
+
+    /// Ensure exactly one UserGoals record exists.
+    private func ensureGoalsExist() {
+        guard allGoals.isEmpty else { return }
+        modelContext.insert(UserGoals())
+    }
+
+    @ViewBuilder
+    private func goalsForm(_ goals: UserGoals) -> some View {
+        @Bindable var goals = goals
+        Form {
+            Section("Weekly Targets") {
+                goalRow(
+                    icon: "calendar.badge.clock",
+                    label: "Sessions / Week",
+                    value: "\(goals.sessionsPerWeek)",
+                    content: {
+                        Stepper(
+                            "\(goals.sessionsPerWeek) sessions",
+                            value: $goals.sessionsPerWeek,
+                            in: 1...14
+                        )
+                        .onChange(of: goals.sessionsPerWeek) { _, _ in
+                            goals.lastModified = .now
+                        }
+                    }
+                )
+
+                goalRow(
+                    icon: "figure.stand",
+                    label: "Target Posture Score",
+                    value: String(format: "%.0f", goals.targetPostureScore),
+                    content: {
+                        VStack {
+                            Slider(value: $goals.targetPostureScore, in: 40...100, step: 5)
+                                .onChange(of: goals.targetPostureScore) { _, _ in
+                                    goals.lastModified = .now
+                                }
+                            HStack {
+                                Text("40").font(.caption2).foregroundStyle(.secondary)
+                                Spacer()
+                                Text("100").font(.caption2).foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                )
+
+                goalRow(
+                    icon: "speedometer",
+                    label: "Target Walking Speed",
+                    value: String(format: "%.1f m/s", goals.targetWalkingSpeed),
+                    content: {
+                        VStack {
+                            Slider(value: $goals.targetWalkingSpeed, in: 0.5...2.0, step: 0.1)
+                                .onChange(of: goals.targetWalkingSpeed) { _, _ in
+                                    goals.lastModified = .now
+                                }
+                            HStack {
+                                Text("0.5").font(.caption2).foregroundStyle(.secondary)
+                                Spacer()
+                                Text("2.0 m/s").font(.caption2).foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                )
+
+                goalRow(
+                    icon: "metronome.fill",
+                    label: "Target Cadence",
+                    value: String(format: "%.0f SPM", goals.targetCadence),
+                    content: {
+                        VStack {
+                            Slider(value: $goals.targetCadence, in: 60...160, step: 5)
+                                .onChange(of: goals.targetCadence) { _, _ in
+                                    goals.lastModified = .now
+                                }
+                            HStack {
+                                Text("60").font(.caption2).foregroundStyle(.secondary)
+                                Spacer()
+                                Text("160 SPM").font(.caption2).foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                )
+            }
+
+            Section("This Week's Progress") {
+                progressRingRow(
+                    label: "Sessions",
+                    icon: "calendar.badge.clock",
+                    current: Double(weeklySessionCount),
+                    target: Double(goals.sessionsPerWeek),
+                    color: .blue
+                )
+
+                progressRingRow(
+                    label: "Posture Score",
+                    icon: "figure.stand",
+                    current: weeklyAveragePostureScore ?? 0,
+                    target: goals.targetPostureScore,
+                    color: .green
+                )
+
+                progressRingRow(
+                    label: "Walking Speed",
+                    icon: "speedometer",
+                    current: weeklyAverageWalkingSpeed ?? 0,
+                    target: goals.targetWalkingSpeed,
+                    color: .teal
+                )
+
+                progressRingRow(
+                    label: "Cadence",
+                    icon: "metronome.fill",
+                    current: weeklyAverageCadence ?? 0,
+                    target: goals.targetCadence,
+                    color: .orange
+                )
+            }
+        }
+        .navigationTitle("Goals")
     }
 
     // MARK: - Weekly Stats (computed from SwiftData)
@@ -170,24 +198,6 @@ struct GoalsView: View {
             .compactMap(\.averageCadenceSPM)
         guard !cadences.isEmpty else { return nil }
         return cadences.reduce(0, +) / Double(cadences.count)
-    }
-
-    // MARK: - Persistence
-
-    private func loadGoals() {
-        guard !goalsJSON.isEmpty,
-              let data = goalsJSON.data(using: .utf8),
-              let decoded = try? JSONDecoder().decode(GoalConfig.self, from: data) else {
-            goals = .default
-            return
-        }
-        goals = decoded
-    }
-
-    private func saveGoals() {
-        guard let data = try? JSONEncoder().encode(goals),
-              let json = String(data: data, encoding: .utf8) else { return }
-        goalsJSON = json
     }
 
     // MARK: - Subviews
@@ -277,5 +287,5 @@ struct GoalsView: View {
 
 #Preview {
     GoalsView()
-        .modelContainer(for: GaitSession.self, inMemory: true)
+        .modelContainer(for: [GaitSession.self, UserGoals.self], inMemory: true)
 }

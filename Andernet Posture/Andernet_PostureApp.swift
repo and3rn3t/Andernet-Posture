@@ -16,10 +16,19 @@ struct Andernet_PostureApp: App {
 
     let sharedModelContainer: ModelContainer
     @State private var showSplash = true
+    @State private var cloudSyncService = CloudSyncService()
 
     init() {
-        let schema = Schema([GaitSession.self])
-        let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
+        let schema = Schema([GaitSession.self, UserGoals.self])
+
+        // iCloud sync: set the CloudKit container identifier so SwiftData
+        // mirrors all models to the private CloudKit database automatically.
+        // Users who aren't signed in to iCloud still get a local-only store.
+        let config = ModelConfiguration(
+            schema: schema,
+            isStoredInMemoryOnly: false,
+            cloudKitDatabase: .automatic
+        )
 
         do {
             sharedModelContainer = try ModelContainer(for: schema, configurations: [config])
@@ -56,6 +65,12 @@ struct Andernet_PostureApp: App {
                 }
             }
             .onAppear {
+                // One-time migration from legacy @AppStorage goals
+                migrateLegacyGoalsIfNeeded()
+
+                // Kick off iCloud KVS sync for demographics
+                KeyValueStoreSync.shared.pushAll()
+
                 // Dismiss splash after animation completes
                 DispatchQueue.main.asyncAfter(deadline: .now() + 2.8) {
                     withAnimation(.easeOut(duration: 0.5)) {
@@ -65,5 +80,33 @@ struct Andernet_PostureApp: App {
             }
         }
         .modelContainer(sharedModelContainer)
+        .environment(cloudSyncService)
+    }
+
+    // MARK: - Legacy Goals Migration
+
+    /// One-time migration from @AppStorage("goalsJSON") → SwiftData UserGoals.
+    private func migrateLegacyGoalsIfNeeded() {
+        let defaults = UserDefaults.standard
+        let legacyKey = "goalsJSON"
+        guard let json = defaults.string(forKey: legacyKey), !json.isEmpty else { return }
+
+        let context = sharedModelContainer.mainContext
+        // Only migrate if no UserGoals exist yet
+        let descriptor = FetchDescriptor<UserGoals>()
+        let existingCount = (try? context.fetchCount(descriptor)) ?? 0
+        guard existingCount == 0 else {
+            // Already migrated — clean up the legacy key
+            defaults.removeObject(forKey: legacyKey)
+            logger.info("Legacy goalsJSON removed (migration already complete)")
+            return
+        }
+
+        if let migrated = UserGoals.fromLegacyJSON(json) {
+            context.insert(migrated)
+            try? context.save()
+            defaults.removeObject(forKey: legacyKey)
+            logger.info("Migrated legacy GoalConfig → SwiftData UserGoals")
+        }
     }
 }
