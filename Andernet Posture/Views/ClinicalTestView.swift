@@ -11,6 +11,7 @@ import SwiftUI
 struct ClinicalTestView: View {
     @State private var viewModel = ClinicalTestViewModel()
     @State private var selectedTest: ClinicalTestType?
+    @State private var pulseScale: CGFloat = 1.0
 
     var body: some View {
         NavigationStack {
@@ -31,23 +32,13 @@ struct ClinicalTestView: View {
     @ViewBuilder
     private var testSelectionView: some View {
         ScrollView {
-            VStack(spacing: 16) {
+            VStack(spacing: AppSpacing.lg) {
                 // Disclaimer banner
-                HStack(spacing: 12) {
-                    Image(systemName: "stethoscope")
-                        .font(.title2)
-                        .foregroundStyle(.blue)
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Guided Clinical Protocols")
-                            .font(.headline)
-                        Text("Standardized tests for mobility, balance, and functional capacity assessment.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
+                SectionCard(title: "Guided Clinical Protocols", icon: "stethoscope", accentColor: .blue) {
+                    Text("Standardized tests for mobility, balance, and functional capacity assessment.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
-                .padding()
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(.blue.opacity(0.1), in: RoundedRectangle(cornerRadius: 16))
 
                 // TUG
                 testCard(
@@ -89,38 +80,47 @@ struct ClinicalTestView: View {
     @ViewBuilder
     private func testCard(title: String, description: String, duration: String, icon: String, color: Color, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            HStack(spacing: 16) {
-                Image(systemName: icon)
-                    .font(.system(size: 36))
-                    .foregroundStyle(color)
-                    .frame(width: 50)
+            HStack(spacing: 0) {
+                // Gradient left accent border
+                RoundedRectangle(cornerRadius: 2)
+                    .fill(color.gradient)
+                    .frame(width: 4)
+                    .padding(.vertical, AppSpacing.sm)
 
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(title)
-                        .font(.headline)
-                        .foregroundStyle(.primary)
+                HStack(spacing: AppSpacing.lg) {
+                    Image(systemName: icon)
+                        .font(.system(size: 36))
+                        .foregroundStyle(color)
+                        .frame(width: 50)
 
-                    Text(description)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.leading)
+                    VStack(alignment: .leading, spacing: AppSpacing.xs) {
+                        Text(title)
+                            .font(.headline)
+                            .foregroundStyle(.primary)
 
-                    HStack {
-                        Image(systemName: "clock")
-                            .font(.caption2)
-                        Text(duration)
-                            .font(.caption2)
+                        Text(description)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.leading)
+
+                        HStack(spacing: AppSpacing.xs) {
+                            Image(systemName: "clock")
+                                .font(.caption2)
+                            Text(duration)
+                                .font(.caption2)
+                        }
+                        .foregroundStyle(.tertiary)
                     }
-                    .foregroundStyle(.tertiary)
+
+                    Spacer()
+
+                    Image(systemName: "chevron.right")
+                        .foregroundStyle(.tertiary)
                 }
-
-                Spacer()
-
-                Image(systemName: "chevron.right")
-                    .foregroundStyle(.tertiary)
+                .padding(AppSpacing.lg)
             }
-            .padding()
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: AppRadius.medium))
+            .appShadow(.card)
         }
         .buttonStyle(.plain)
     }
@@ -129,7 +129,7 @@ struct ClinicalTestView: View {
 
     @ViewBuilder
     private var activeTestView: some View {
-        VStack(spacing: 24) {
+        VStack(spacing: AppSpacing.xxl) {
             Spacer()
 
             // State-specific content
@@ -168,38 +168,56 @@ struct ClinicalTestView: View {
 
     @ViewBuilder
     private func instructionView(step: Int, totalSteps: Int, instruction: String) -> some View {
-        VStack(spacing: 20) {
-            // Progress
-            HStack(spacing: 4) {
-                ForEach(1...totalSteps, id: \.self) { i in
-                    Capsule()
-                        .fill(i <= step ? .blue : .gray.opacity(0.3))
-                        .frame(height: 4)
+        SectionCard {
+            VStack(spacing: AppSpacing.lg) {
+                // Animated progress bar
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        Capsule()
+                            .fill(.gray.opacity(0.2))
+                        Capsule()
+                            .fill(.blue.gradient)
+                            .frame(width: geo.size.width * CGFloat(step) / CGFloat(totalSteps))
+                            .animation(.spring(duration: 0.5, bounce: 0.2), value: step)
+                    }
                 }
+                .frame(height: 6)
+
+                Text("Step \(step) of \(totalSteps)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                Text(instruction)
+                    .font(.title3)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, AppSpacing.md)
             }
-
-            Text("Step \(step) of \(totalSteps)")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-
-            Text(instruction)
-                .font(.title3)
-                .multilineTextAlignment(.center)
-                .padding()
         }
-        .padding()
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 24))
     }
 
     // MARK: - Countdown
 
     @ViewBuilder
     private func countdownView(seconds: Int) -> some View {
-        VStack(spacing: 16) {
-            Text("\(seconds)")
-                .font(.system(size: 96, weight: .bold, design: .rounded))
-                .foregroundStyle(.blue)
-                .contentTransition(.numericText())
+        VStack(spacing: AppSpacing.lg) {
+            // Countdown ring
+            ZStack {
+                Circle()
+                    .stroke(.blue.opacity(0.15), lineWidth: 8)
+                    .frame(width: 160, height: 160)
+
+                Circle()
+                    .trim(from: 0, to: CGFloat(seconds) / 3.0)
+                    .stroke(.blue.gradient, style: StrokeStyle(lineWidth: 8, lineCap: .round))
+                    .rotationEffect(.degrees(-90))
+                    .frame(width: 160, height: 160)
+                    .animation(.easeInOut(duration: 0.8), value: seconds)
+
+                Text("\(seconds)")
+                    .font(.system(size: 72, weight: .bold, design: .rounded))
+                    .foregroundStyle(.blue)
+                    .contentTransition(.numericText())
+            }
 
             Text("Get ready...")
                 .font(.title3)
@@ -211,11 +229,12 @@ struct ClinicalTestView: View {
 
     @ViewBuilder
     private func runningView(phaseLabel: String) -> some View {
-        VStack(spacing: 20) {
+        VStack(spacing: AppSpacing.xl) {
             // Timer
-            Text(formatTime(viewModel.elapsedTime > 0 ? viewModel.elapsedTime : viewModel.phaseElapsedTime))
-                .font(.system(size: 64, weight: .bold, design: .monospaced))
+            Text((viewModel.elapsedTime > 0 ? viewModel.elapsedTime : viewModel.phaseElapsedTime).mmssWithTenths)
+                .font(AppFonts.timer)
                 .foregroundStyle(.primary)
+                .contentTransition(.numericText())
 
             Text(phaseLabel)
                 .font(.title3)
@@ -223,23 +242,46 @@ struct ClinicalTestView: View {
                 .foregroundStyle(.secondary)
 
             if viewModel.testType == .sixMinuteWalk {
-                VStack(spacing: 4) {
-                    Text(String(format: "%.0f m", viewModel.sixMWTDistance))
-                        .font(.title.bold())
-                    Text("Distance")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                SectionCard {
+                    HStack {
+                        VStack(spacing: AppSpacing.xs) {
+                            Text(String(format: "%.0f m", viewModel.sixMWTDistance))
+                                .font(AppFonts.metricValue(.title))
+                                .contentTransition(.numericText())
+                            Text("Distance")
+                                .font(AppFonts.metricLabel)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                    }
                 }
-                .padding()
-                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
+                .padding(.horizontal, AppSpacing.xxl)
             }
 
-            // Pulsing indicator
+            // Pulsing recording indicator
+            recordingDot
+        }
+    }
+
+    @ViewBuilder
+    private var recordingDot: some View {
+        ZStack {
+            Circle()
+                .stroke(.red.opacity(0.3), lineWidth: 3)
+                .frame(width: 20, height: 20)
             Circle()
                 .fill(.red)
-                .frame(width: 16, height: 16)
-                .shadow(color: .red.opacity(0.5), radius: 8)
-                .symbolEffect(.pulse)
+                .frame(width: 10, height: 10)
+            Circle()
+                .stroke(.red, lineWidth: 2)
+                .frame(width: 20, height: 20)
+                .scaleEffect(pulseScale)
+                .opacity(2 - pulseScale)
+        }
+        .onAppear {
+            withAnimation(.easeInOut(duration: 1.0).repeatForever(autoreverses: false)) {
+                pulseScale = 2.0
+            }
         }
     }
 
@@ -247,28 +289,30 @@ struct ClinicalTestView: View {
 
     @ViewBuilder
     private func transitionView(instruction: String) -> some View {
-        VStack(spacing: 16) {
-            Image(systemName: "arrow.forward.circle.fill")
-                .font(.system(size: 48))
-                .foregroundStyle(.blue)
-                .symbolEffect(.bounce)
+        SectionCard {
+            VStack(spacing: AppSpacing.lg) {
+                Image(systemName: "arrow.forward.circle.fill")
+                    .font(.system(size: 48))
+                    .foregroundStyle(.blue)
+                    .symbolEffect(.bounce)
 
-            Text(instruction)
-                .font(.title3)
-                .multilineTextAlignment(.center)
+                Text(instruction)
+                    .font(.title3)
+                    .multilineTextAlignment(.center)
+            }
+            .frame(maxWidth: .infinity)
         }
-        .padding()
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 24))
     }
 
     // MARK: - Results
 
     @ViewBuilder
     private var resultsView: some View {
-        VStack(spacing: 20) {
+        VStack(spacing: AppSpacing.xl) {
             Image(systemName: "checkmark.circle.fill")
                 .font(.system(size: 56))
                 .foregroundStyle(.green)
+                .symbolEffect(.bounce, value: viewModel.testState)
 
             Text("Test Complete")
                 .font(.title.bold())
@@ -298,58 +342,58 @@ struct ClinicalTestView: View {
 
     @ViewBuilder
     private func tugResultView(_ result: TUGResult) -> some View {
-        VStack(spacing: 12) {
-            resultRow("Time", value: String(format: "%.1f sec", result.timeSec))
-            resultRow("Fall Risk", value: result.fallRisk.rawValue.capitalized,
-                       severity: result.fallRisk == .low ? .normal : result.fallRisk == .moderate ? .moderate : .severe)
-            resultRow("Mobility", value: result.mobilityLevel)
+        SectionCard(title: "TUG Results", icon: "figure.walk.arrival", accentColor: .green) {
+            VStack(spacing: AppSpacing.md) {
+                resultRow("Time", value: String(format: "%.1f sec", result.timeSec))
+                resultRow("Fall Risk", value: result.fallRisk.rawValue.capitalized,
+                           severity: result.fallRisk == .low ? .normal : result.fallRisk == .moderate ? .moderate : .severe)
+                resultRow("Mobility", value: result.mobilityLevel)
 
-            Text("Ref: Shumway-Cook et al., 2000 (fall risk >13.5s)")
-                .font(.caption2)
-                .foregroundStyle(.tertiary)
-                .padding(.top, 8)
+                Text("Ref: Shumway-Cook et al., 2000 (fall risk >13.5s)")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+                    .padding(.top, AppSpacing.xs)
+            }
         }
-        .padding()
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
     }
 
     @ViewBuilder
     private func rombergResultView(_ result: RombergResult) -> some View {
-        VStack(spacing: 12) {
-            resultRow("Eyes Open Sway", value: String(format: "%.1f mm/s", result.eyesOpenSwayVelocity))
-            resultRow("Eyes Closed Sway", value: String(format: "%.1f mm/s", result.eyesClosedSwayVelocity))
-            resultRow("Romberg Ratio", value: String(format: "%.2f", result.ratio),
-                       severity: result.ratio <= 2.0 ? .normal : .moderate)
+        SectionCard(title: "Romberg Results", icon: "figure.stand", accentColor: .purple) {
+            VStack(spacing: AppSpacing.md) {
+                resultRow("Eyes Open Sway", value: String(format: "%.1f mm/s", result.eyesOpenSwayVelocity))
+                resultRow("Eyes Closed Sway", value: String(format: "%.1f mm/s", result.eyesClosedSwayVelocity))
+                resultRow("Romberg Ratio", value: String(format: "%.2f", result.ratio),
+                           severity: result.ratio <= 2.0 ? .normal : .moderate)
 
-            Text("Ratio >2.0 suggests proprioceptive/vestibular deficit")
-                .font(.caption2)
-                .foregroundStyle(.tertiary)
-                .padding(.top, 8)
+                Text("Ratio >2.0 suggests proprioceptive/vestibular deficit")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+                    .padding(.top, AppSpacing.xs)
+            }
         }
-        .padding()
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
     }
 
     @ViewBuilder
     private func sixMWTResultView(_ result: SixMinuteWalkResult) -> some View {
-        VStack(spacing: 12) {
-            resultRow("Distance", value: String(format: "%.0f m", result.distanceM))
-            if let predicted = result.predictedDistanceM {
-                resultRow("Predicted", value: String(format: "%.0f m", predicted))
-            }
-            if let pctPredicted = result.percentPredicted {
-                resultRow("% Predicted", value: String(format: "%.0f%%", pctPredicted),
-                           severity: pctPredicted >= 80 ? .normal : pctPredicted >= 60 ? .mild : .moderate)
-            }
-            resultRow("Classification", value: result.classification)
+        SectionCard(title: "6MWT Results", icon: "figure.walk", accentColor: .orange) {
+            VStack(spacing: AppSpacing.md) {
+                resultRow("Distance", value: String(format: "%.0f m", result.distanceM))
+                if let predicted = result.predictedDistanceM {
+                    resultRow("Predicted", value: String(format: "%.0f m", predicted))
+                }
+                if let pctPredicted = result.percentPredicted {
+                    resultRow("% Predicted", value: String(format: "%.0f%%", pctPredicted),
+                               severity: pctPredicted >= 80 ? .normal : pctPredicted >= 60 ? .mild : .moderate)
+                }
+                resultRow("Classification", value: result.classification)
 
-            Text("Ref: Enright & Sherrill, 1998")
-                .font(.caption2)
-                .foregroundStyle(.tertiary)
-                .padding(.top, 8)
+                Text("Ref: Enright & Sherrill, 1998")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+                    .padding(.top, AppSpacing.xs)
+            }
         }
-        .padding()
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
     }
 
     @ViewBuilder
@@ -359,13 +403,11 @@ struct ClinicalTestView: View {
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
             Spacer()
-            HStack(spacing: 6) {
+            HStack(spacing: AppSpacing.xs) {
                 Text(value)
                     .font(.subheadline.bold())
                 if let severity {
-                    Circle()
-                        .fill(severityColor(severity))
-                        .frame(width: 8, height: 8)
+                    SeverityBadge(severity: severity)
                 }
             }
         }
@@ -375,7 +417,7 @@ struct ClinicalTestView: View {
 
     @ViewBuilder
     private var cancelledView: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: AppSpacing.lg) {
             Image(systemName: "xmark.circle.fill")
                 .font(.system(size: 48))
                 .foregroundStyle(.secondary)
@@ -390,7 +432,7 @@ struct ClinicalTestView: View {
 
     @ViewBuilder
     private var testControls: some View {
-        HStack(spacing: 16) {
+        HStack(spacing: AppSpacing.lg) {
             switch viewModel.testState {
             case .instructing:
                 Button {
@@ -463,9 +505,9 @@ struct ClinicalTestView: View {
                 EmptyView()
             }
         }
-        .padding(.vertical, 12)
-        .padding(.horizontal, 20)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20))
+        .padding(.vertical, AppSpacing.md)
+        .padding(.horizontal, AppSpacing.xl)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: AppRadius.large))
     }
 
     // MARK: - Helpers
@@ -479,21 +521,7 @@ struct ClinicalTestView: View {
         }
     }
 
-    private func formatTime(_ time: TimeInterval) -> String {
-        let minutes = Int(time) / 60
-        let seconds = Int(time) % 60
-        let tenths = Int((time - Double(Int(time))) * 10)
-        return String(format: "%d:%02d.%d", minutes, seconds, tenths)
-    }
 
-    private func severityColor(_ severity: ClinicalSeverity) -> Color {
-        switch severity {
-        case .normal: return .green
-        case .mild: return .yellow
-        case .moderate: return .orange
-        case .severe: return .red
-        }
-    }
 }
 
 #Preview {

@@ -129,31 +129,16 @@ final class AROverlayConfig {
 
     /// Platform color for a given clinical severity.
     static func color(for severity: ClinicalSeverity) -> UIColor {
-        switch severity {
-        case .normal:   return .systemGreen
-        case .mild:     return .systemYellow
-        case .moderate: return .systemOrange
-        case .severe:   return .systemRed
-        }
+        AppColors.severityUIColor(for: severity)
     }
 
     /// SwiftUI color for a given clinical severity.
     static func swiftUIColor(for severity: ClinicalSeverity) -> Color {
-        switch severity {
-        case .normal:   return .green
-        case .mild:     return .yellow
-        case .moderate: return .orange
-        case .severe:   return .red
-        }
+        AppColors.severityColor(for: severity)
     }
 
     /// Platform color for a posture score (0–100).
     static func heatmapColor(for score: Double) -> UIColor {
-        switch score {
-        case 80...100: return .systemGreen
-        case 60..<80:  return UIColor(red: 0.6, green: 0.8, blue: 0.2, alpha: 1)
-        case 40..<60:  return .systemOrange
-        default:       return .systemRed
-        }
+        AppColors.scoreUIColor(for: score)
     }
 }

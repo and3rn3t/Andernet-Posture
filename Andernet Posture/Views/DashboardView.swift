@@ -14,11 +14,26 @@ import Accessibility
 struct DashboardView: View {
     @Query(sort: \GaitSession.date, order: .reverse) private var sessions: [GaitSession]
     @State private var viewModel = DashboardViewModel()
+    @State private var showCards = false
 
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 20) {
+                VStack(spacing: AppSpacing.xl) {
+                    // MARK: - Hero Score Ring
+                    if let score = viewModel.recentPostureScore {
+                        VStack(spacing: AppSpacing.sm) {
+                            ScoreRingView(score: score, size: 140, lineWidth: 14)
+
+                            if let latestDate = sessions.first?.date {
+                                Text(latestDate.formatted(date: .abbreviated, time: .shortened))
+                                    .font(AppFonts.metricLabel(.caption))
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        .padding(.top, AppSpacing.sm)
+                    }
+
                     // MARK: - Quick Stats Cards
                     quickStatsSection
 
@@ -38,13 +53,14 @@ struct DashboardView: View {
                             Image(systemName: "target")
                                 .foregroundStyle(.blue)
                             Text("Goals & Progress")
-                                .font(.headline)
+                                .font(AppFonts.sectionHeader)
                             Spacer()
                             Image(systemName: "chevron.right")
                                 .foregroundStyle(.secondary)
                         }
-                        .padding()
-                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                        .padding(AppSpacing.lg)
+                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: AppRadius.medium))
+                        .appShadow(.card)
                     }
                     .buttonStyle(.plain)
 
@@ -52,6 +68,7 @@ struct DashboardView: View {
                     if !viewModel.postureScoreTrend.isEmpty {
                         trendChart(
                             title: "Posture Score",
+                            icon: "chart.line.uptrend.xyaxis",
                             data: viewModel.postureScoreTrend,
                             color: .blue,
                             unit: ""
@@ -62,6 +79,7 @@ struct DashboardView: View {
                     if !viewModel.walkingSpeedTrend.isEmpty {
                         trendChart(
                             title: "Walking Speed",
+                            icon: "speedometer",
                             data: viewModel.walkingSpeedTrend,
                             color: .teal,
                             unit: "m/s"
@@ -72,6 +90,7 @@ struct DashboardView: View {
                     if !viewModel.cadenceTrend.isEmpty {
                         trendChart(
                             title: "Cadence",
+                            icon: "metronome.fill",
                             data: viewModel.cadenceTrend,
                             color: .green,
                             unit: "SPM"
@@ -82,6 +101,7 @@ struct DashboardView: View {
                     if !viewModel.cvaTrend.isEmpty {
                         trendChart(
                             title: "Craniovertebral Angle",
+                            icon: "angle",
                             data: viewModel.cvaTrend,
                             color: .purple,
                             unit: "°"
@@ -92,6 +112,7 @@ struct DashboardView: View {
                     if !viewModel.fallRiskTrend.isEmpty {
                         trendChart(
                             title: "Fall Risk Score",
+                            icon: "exclamationmark.triangle.fill",
                             data: viewModel.fallRiskTrend,
                             color: .red,
                             unit: ""
@@ -102,6 +123,7 @@ struct DashboardView: View {
                     if !viewModel.strideLengthTrend.isEmpty {
                         trendChart(
                             title: "Stride Length",
+                            icon: "ruler.fill",
                             data: viewModel.strideLengthTrend,
                             color: .orange,
                             unit: "m"
@@ -119,10 +141,19 @@ struct DashboardView: View {
                     }
                 }
                 .padding()
+                .opacity(showCards ? 1 : 0)
+                .offset(y: showCards ? 0 : 20)
+                .animation(.easeOut(duration: 0.5), value: showCards)
+            }
+            .refreshable {
+                viewModel.refresh(sessions: sessions)
             }
             .navigationTitle("Dashboard")
             .onAppear {
                 viewModel.refresh(sessions: sessions)
+                withAnimation {
+                    showCards = true
+                }
             }
             .onChange(of: sessions.count) {
                 viewModel.refresh(sessions: sessions)
@@ -137,45 +168,51 @@ struct DashboardView: View {
         LazyVGrid(columns: [
             GridItem(.flexible()),
             GridItem(.flexible())
-        ], spacing: 12) {
-            StatCard(
+        ], spacing: AppSpacing.md) {
+            MetricCard(
+                icon: "figure.stand",
                 title: "Posture",
                 value: viewModel.postureLabel,
-                score: viewModel.recentPostureScore,
-                icon: "figure.stand"
+                severity: viewModel.recentPostureScore.map { scoreSeverity($0) },
+                tintColor: AppColors.scoreColor(for: viewModel.recentPostureScore ?? 0)
             )
 
-            StatCard(
+            MetricCard(
+                icon: "speedometer",
                 title: "Walking Speed",
                 value: viewModel.walkingSpeedLabel,
                 severity: viewModel.recentWalkingSpeed.map { GaitThresholds.speedSeverity($0) },
-                icon: "speedometer"
+                tintColor: .teal
             )
 
-            StatCard(
+            MetricCard(
+                icon: "metronome.fill",
                 title: "Cadence",
                 value: viewModel.recentCadence.map { String(format: "%.0f SPM", $0) } ?? "—",
-                icon: "metronome.fill"
+                tintColor: .blue
             )
 
-            StatCard(
+            MetricCard(
+                icon: "ruler.fill",
                 title: "Stride",
                 value: viewModel.recentStrideLength.map { String(format: "%.2f m", $0) } ?? "—",
-                icon: "ruler.fill"
+                tintColor: .blue
             )
 
-            StatCard(
+            MetricCard(
+                icon: "exclamationmark.triangle.fill",
                 title: "Fall Risk",
                 value: viewModel.fallRiskLabel,
                 severity: fallRiskSeverity,
-                icon: "exclamationmark.triangle.fill"
+                tintColor: .red
             )
 
-            StatCard(
+            MetricCard(
+                icon: "clock.fill",
                 title: "Sessions",
                 value: "\(viewModel.totalSessions)",
                 subtitle: viewModel.formattedTotalTime,
-                icon: "clock.fill"
+                tintColor: .indigo
             )
         }
     }
@@ -184,76 +221,95 @@ struct DashboardView: View {
 
     @ViewBuilder
     private var clinicalQuickGlance: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: AppSpacing.md) {
             Text("Clinical Insights")
-                .font(.headline)
+                .font(AppFonts.sectionHeader)
+                .padding(.horizontal, AppSpacing.xs)
 
-            LazyVGrid(columns: [
-                GridItem(.flexible()),
-                GridItem(.flexible()),
-                GridItem(.flexible())
-            ], spacing: 10) {
-                if let cva = viewModel.recentCVA {
-                    ClinicalMiniCard(
-                        label: "CVA",
-                        value: String(format: "%.0f°", cva),
-                        severity: PostureThresholds.cvaSeverity(cva)
-                    )
-                }
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: AppSpacing.md) {
+                    if let cva = viewModel.recentCVA {
+                        MetricCard(
+                            icon: "angle",
+                            title: "CVA",
+                            value: String(format: "%.0f°", cva),
+                            severity: PostureThresholds.cvaSeverity(cva),
+                            tintColor: .purple,
+                            compact: true
+                        )
+                        .frame(width: 160)
+                    }
 
-                if let sym = viewModel.recentGaitSymmetry {
-                    ClinicalMiniCard(
-                        label: "Symmetry",
-                        value: String(format: "%.0f%%", sym),
-                        severity: GaitThresholds.symmetrySeverity(sym)
-                    )
-                }
+                    if let sym = viewModel.recentGaitSymmetry {
+                        MetricCard(
+                            icon: "arrow.left.arrow.right",
+                            title: "Symmetry",
+                            value: String(format: "%.0f%%", sym),
+                            severity: GaitThresholds.symmetrySeverity(sym),
+                            tintColor: .blue,
+                            compact: true
+                        )
+                        .frame(width: 160)
+                    }
 
-                if let reba = viewModel.recentRebaScore {
-                    ClinicalMiniCard(
-                        label: "REBA",
-                        value: "\(reba)",
-                        severity: rebaSeverity(reba)
-                    )
-                }
+                    if let reba = viewModel.recentRebaScore {
+                        MetricCard(
+                            icon: "figure.stand",
+                            title: "REBA",
+                            value: "\(reba)",
+                            severity: rebaSeverity(reba),
+                            tintColor: .purple,
+                            compact: true
+                        )
+                        .frame(width: 160)
+                    }
 
-                if let fatigue = viewModel.recentFatigueIndex {
-                    ClinicalMiniCard(
-                        label: "Fatigue",
-                        value: String(format: "%.0f", fatigue),
-                        severity: fatigueSeverity(fatigue)
-                    )
-                }
+                    if let fatigue = viewModel.recentFatigueIndex {
+                        MetricCard(
+                            icon: "battery.25percent",
+                            title: "Fatigue",
+                            value: String(format: "%.0f", fatigue),
+                            severity: fatigueSeverity(fatigue),
+                            tintColor: .orange,
+                            compact: true
+                        )
+                        .frame(width: 160)
+                    }
 
-                if let kendall = viewModel.recentKendallType {
-                    ClinicalMiniCard(
-                        label: "Posture Type",
-                        value: kendallDisplayName(kendall),
-                        severity: kendall == "ideal" ? .normal : .mild
-                    )
-                }
+                    if let kendall = viewModel.recentKendallType {
+                        MetricCard(
+                            icon: "person.fill",
+                            title: "Posture Type",
+                            value: kendall.kendallShortName,
+                            severity: kendall == "ideal" ? .normal : .mild,
+                            tintColor: .green,
+                            compact: true
+                        )
+                        .frame(width: 160)
+                    }
 
-                if let pattern = viewModel.recentGaitPattern {
-                    ClinicalMiniCard(
-                        label: "Gait Pattern",
-                        value: patternDisplayName(pattern),
-                        severity: pattern == "normal" ? .normal : .mild
-                    )
+                    if let pattern = viewModel.recentGaitPattern {
+                        MetricCard(
+                            icon: "figure.walk",
+                            title: "Gait Pattern",
+                            value: pattern.patternDisplayName,
+                            severity: pattern == "normal" ? .normal : .mild,
+                            tintColor: .teal,
+                            compact: true
+                        )
+                        .frame(width: 160)
+                    }
                 }
+                .padding(.horizontal, AppSpacing.xs)
             }
         }
-        .padding()
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
     }
 
     // MARK: - Trend Chart
 
     @ViewBuilder
-    private func trendChart(title: String, data: [TrendPoint], color: Color, unit: String) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(title)
-                .font(.headline)
-
+    private func trendChart(title: String, icon: String, data: [TrendPoint], color: Color, unit: String) -> some View {
+        ChartCard(title: title, icon: icon) {
             Chart(data) { point in
                 LineMark(
                     x: .value("Date", point.date),
@@ -270,11 +326,8 @@ struct DashboardView: View {
                 .foregroundStyle(color.opacity(0.1).gradient)
             }
             .chartYAxisLabel(unit)
-            .frame(height: 180)
             .accessibilityChartDescriptor(TrendChartDescriptor(title: title, data: data, unit: unit))
         }
-        .padding()
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
     }
 
     // MARK: - Helpers
@@ -286,6 +339,15 @@ struct DashboardView: View {
         case "moderate": return .moderate
         case "high": return .severe
         default: return nil
+        }
+    }
+
+    private func scoreSeverity(_ score: Double) -> ClinicalSeverity {
+        switch score {
+        case 80...: return .normal
+        case 60..<80: return .mild
+        case 40..<60: return .moderate
+        default: return .severe
         }
     }
 
@@ -304,138 +366,6 @@ struct DashboardView: View {
         if index < 75 { return .moderate }
         return .severe
     }
-
-    private func kendallDisplayName(_ raw: String) -> String {
-        switch raw {
-        case "ideal": return "Ideal"
-        case "kyphosisLordosis": return "Kypho-Lord"
-        case "flatBack": return "Flat Back"
-        case "swayBack": return "Sway Back"
-        default: return raw.capitalized
-        }
-    }
-
-    private func patternDisplayName(_ raw: String) -> String {
-        switch raw {
-        case "normal": return "Normal"
-        case "antalgic": return "Antalgic"
-        case "trendelenburg": return "Trendelenburg"
-        case "festinating": return "Festinating"
-        case "circumduction": return "Circumduction"
-        case "ataxic": return "Ataxic"
-        case "waddling": return "Waddling"
-        default: return raw.capitalized
-        }
-    }
-}
-
-// MARK: - Stat Card
-
-private struct StatCard: View {
-    let title: String
-    let value: String
-    var score: Double? = nil
-    var severity: ClinicalSeverity? = nil
-    var subtitle: String? = nil
-    let icon: String
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack {
-                Image(systemName: icon)
-                    .foregroundStyle(.secondary)
-                Spacer()
-                if let score {
-                    scoreIndicator(score)
-                } else if let severity {
-                    Circle()
-                        .fill(severityColor(severity))
-                        .frame(width: 10, height: 10)
-                }
-            }
-
-            Text(value)
-                .font(.title2.bold())
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
-
-            HStack {
-                Text(title)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                if let subtitle {
-                    Spacer()
-                    Text(subtitle)
-                        .font(.caption2)
-                        .foregroundStyle(.tertiary)
-                }
-            }
-        }
-        .padding()
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
-    }
-
-    @ViewBuilder
-    private func scoreIndicator(_ score: Double) -> some View {
-        Circle()
-            .fill(scoreColor(score))
-            .frame(width: 10, height: 10)
-    }
-
-    private func scoreColor(_ score: Double) -> Color {
-        switch score {
-        case 80...100: return .green
-        case 60..<80: return .yellow
-        case 40..<60: return .orange
-        default: return .red
-        }
-    }
-
-    private func severityColor(_ severity: ClinicalSeverity) -> Color {
-        switch severity {
-        case .normal: return .green
-        case .mild: return .yellow
-        case .moderate: return .orange
-        case .severe: return .red
-        }
-    }
-}
-
-// MARK: - Clinical Mini Card
-
-private struct ClinicalMiniCard: View {
-    let label: String
-    let value: String
-    let severity: ClinicalSeverity
-
-    var body: some View {
-        VStack(spacing: 4) {
-            Text(value)
-                .font(.system(.callout, design: .rounded).bold())
-                .lineLimit(1)
-                .minimumScaleFactor(0.6)
-            Text(label)
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 8)
-        .padding(.horizontal, 4)
-        .background(severityColor.opacity(0.15), in: RoundedRectangle(cornerRadius: 10))
-        .overlay(
-            RoundedRectangle(cornerRadius: 10)
-                .strokeBorder(severityColor.opacity(0.3), lineWidth: 1)
-        )
-    }
-
-    private var severityColor: Color {
-        switch severity {
-        case .normal: return .green
-        case .mild: return .yellow
-        case .moderate: return .orange
-        case .severe: return .red
-        }
-    }
 }
 
 // MARK: - Insights Section
@@ -443,10 +373,10 @@ private struct ClinicalMiniCard: View {
 extension DashboardView {
     @ViewBuilder
     var insightsSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: AppSpacing.md) {
             HStack {
                 Text("Insights")
-                    .font(.headline)
+                    .font(AppFonts.sectionHeader)
                 Spacer()
                 if viewModel.insights.count > 5 {
                     NavigationLink("See All") {
@@ -470,37 +400,24 @@ extension DashboardView {
 
     @ViewBuilder
     private func insightCard(_ insight: Insight) -> some View {
-        HStack(alignment: .top, spacing: 12) {
-            Image(systemName: insight.icon)
-                .font(.title3)
-                .foregroundStyle(insightSeverityColor(insight.severity))
-                .frame(width: 32)
+        SectionCard(accentColor: AppColors.severityColor(for: insight.severity)) {
+            HStack(alignment: .top, spacing: AppSpacing.md) {
+                Image(systemName: insight.icon)
+                    .font(.title3)
+                    .foregroundStyle(AppColors.severityColor(for: insight.severity))
+                    .frame(width: 32)
 
-            VStack(alignment: .leading, spacing: 4) {
-                Text(insight.title)
-                    .font(.subheadline.bold())
-                Text(insight.body)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+                VStack(alignment: .leading, spacing: AppSpacing.xs) {
+                    Text(insight.title)
+                        .font(.subheadline.bold())
+                    Text(insight.body)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer(minLength: 0)
             }
-
-            Spacer(minLength: 0)
-        }
-        .padding()
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14))
-        .overlay(
-            RoundedRectangle(cornerRadius: 14)
-                .strokeBorder(insightSeverityColor(insight.severity).opacity(0.3), lineWidth: 1)
-        )
-    }
-
-    private func insightSeverityColor(_ severity: ClinicalSeverity) -> Color {
-        switch severity {
-        case .normal: return .green
-        case .mild: return .yellow
-        case .moderate: return .orange
-        case .severe: return .red
         }
     }
 }

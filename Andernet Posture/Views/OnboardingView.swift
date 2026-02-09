@@ -25,20 +25,20 @@ struct OnboardingView: View {
             .ignoresSafeArea()
             .animation(.easeInOut(duration: 0.5), value: currentPage)
 
-            VStack {
+            VStack(spacing: 0) {
                 // Skip button on pages 0-3
                 HStack {
                     Spacer()
                     if currentPage < pageCount - 1 {
                         Button("Skip") {
-                            withAnimation {
+                            withAnimation(.spring(duration: 0.4)) {
                                 currentPage = pageCount - 1
                             }
                         }
                         .font(.subheadline.weight(.medium))
                         .foregroundStyle(.white.opacity(0.8))
-                        .padding(.trailing, 24)
-                        .padding(.top, 12)
+                        .padding(.trailing, AppSpacing.xxl)
+                        .padding(.top, AppSpacing.md)
                     }
                 }
 
@@ -49,8 +49,25 @@ struct OnboardingView: View {
                     privacyPage.tag(3)
                     getStartedPage.tag(4)
                 }
-                .tabViewStyle(.page(indexDisplayMode: .always))
+                .tabViewStyle(.page(indexDisplayMode: .never))
                 .animation(.easeInOut, value: currentPage)
+
+                // Custom page indicator
+                customPageIndicator
+                    .padding(.bottom, AppSpacing.xxl)
+            }
+        }
+    }
+
+    // MARK: - Custom Page Indicator
+
+    private var customPageIndicator: some View {
+        HStack(spacing: AppSpacing.sm) {
+            ForEach(0..<pageCount, id: \.self) { index in
+                Capsule()
+                    .fill(.white.opacity(index == currentPage ? 0.95 : 0.35))
+                    .frame(width: index == currentPage ? 24 : 8, height: 8)
+                    .animation(.spring(duration: 0.35, bounce: 0.3), value: currentPage)
             }
         }
     }
@@ -90,29 +107,29 @@ struct OnboardingView: View {
     }
 
     private var getStartedPage: some View {
-        VStack(spacing: 24) {
+        VStack(spacing: AppSpacing.xxl) {
             Spacer()
 
             Image(systemName: "checkmark.seal.fill")
-                .font(.system(size: 60))
+                .font(.system(size: 80))
                 .foregroundStyle(.white)
-                .symbolEffect(.pulse)
+                .symbolEffect(.bounce, value: currentPage == 4)
 
             Text("Get Started")
-                .font(.title.bold())
+                .font(.largeTitle.bold())
                 .foregroundStyle(.white)
 
             Text("Accept the clinical disclaimer to begin using Andernet Posture.")
                 .font(.body)
                 .foregroundStyle(.white.opacity(0.85))
                 .multilineTextAlignment(.center)
-                .padding(.horizontal, 32)
+                .padding(.horizontal, AppSpacing.xxxl)
 
             Spacer()
 
             Button {
                 disclaimerAccepted = true
-                withAnimation {
+                withAnimation(.spring(duration: 0.4)) {
                     hasCompletedOnboarding = true
                 }
             } label: {
@@ -120,13 +137,13 @@ struct OnboardingView: View {
                     .font(.headline)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)
+                    .foregroundStyle(.indigo)
             }
             .buttonStyle(.borderedProminent)
             .tint(.white)
-            .foregroundStyle(.indigo)
             .controlSize(.large)
-            .padding(.horizontal, 40)
-            .padding(.bottom, 60)
+            .padding(.horizontal, AppSpacing.xxxl)
+            .padding(.bottom, AppSpacing.xxxl)
         }
     }
 
@@ -151,29 +168,41 @@ private struct OnboardingPageView: View {
     let title: String
     let subtitle: String
 
+    @State private var appeared = false
+
     var body: some View {
-        VStack(spacing: 24) {
+        VStack(spacing: AppSpacing.xxl) {
             Spacer()
 
             Image(systemName: icon)
-                .font(.system(size: 60))
+                .font(.system(size: 80))
                 .foregroundStyle(.white)
-                .symbolEffect(.pulse)
+                .scaleEffect(appeared ? 1 : 0.6)
+                .opacity(appeared ? 1 : 0)
+                .animation(.spring(duration: 0.6, bounce: 0.3).delay(0.1), value: appeared)
 
             Text(title)
-                .font(.title.bold())
+                .font(.largeTitle.bold())
                 .foregroundStyle(.white)
                 .multilineTextAlignment(.center)
+                .offset(y: appeared ? 0 : 20)
+                .opacity(appeared ? 1 : 0)
+                .animation(.spring(duration: 0.5).delay(0.25), value: appeared)
 
             Text(subtitle)
                 .font(.body)
                 .foregroundStyle(.white.opacity(0.85))
                 .multilineTextAlignment(.center)
-                .padding(.horizontal, 32)
+                .padding(.horizontal, AppSpacing.xxxl)
+                .offset(y: appeared ? 0 : 20)
+                .opacity(appeared ? 1 : 0)
+                .animation(.spring(duration: 0.5).delay(0.35), value: appeared)
 
             Spacer()
             Spacer()
         }
+        .onAppear { appeared = true }
+        .onDisappear { appeared = false }
     }
 }
 

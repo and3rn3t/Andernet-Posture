@@ -16,6 +16,15 @@ extension TimeInterval {
         return String(format: "%d:%02d", minutes, seconds)
     }
 
+    /// Format as "M:SS.t" string (with tenths of a second).
+    var mmssWithTenths: String {
+        let total = Int(self)
+        let minutes = total / 60
+        let seconds = total % 60
+        let tenths = Int((self - Double(total)) * 10)
+        return String(format: "%d:%02d.%d", minutes, seconds, tenths)
+    }
+
     /// Format as "Hh Mm" for longer durations.
     var longForm: String {
         let total = Int(self)

@@ -14,6 +14,7 @@ struct SessionListView: View {
     @State private var compareMode = false
     @State private var selectedForCompare: Set<PersistentIdentifier> = []
     @State private var navigateToComparison = false
+    @State private var searchText = ""
 
     /// The two sessions chosen for comparison (baseline = earlier date).
     private var comparisonPair: (GaitSession, GaitSession)? {
@@ -22,6 +23,50 @@ struct SessionListView: View {
         guard picked.count == 2 else { return nil }
         let sorted = picked.sorted { $0.date < $1.date }
         return (sorted[0], sorted[1])
+    }
+
+    // MARK: - Filtering & Grouping
+
+    private static let searchFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateStyle = .medium
+        f.timeStyle = .none
+        return f
+    }()
+
+    private static let monthGroupFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM"
+        return f
+    }()
+
+    private static let monthDisplayFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "MMMM yyyy"
+        return f
+    }()
+
+    /// Sessions filtered by the current search text.
+    private var filteredSessions: [GaitSession] {
+        guard !searchText.isEmpty else { return sessions }
+        return sessions.filter { session in
+            Self.searchFormatter.string(from: session.date)
+                .localizedCaseInsensitiveContains(searchText)
+        }
+    }
+
+    /// Filtered sessions grouped by year-month, sorted in reverse chronological order.
+    private var groupedSections: [(key: String, display: String, sessions: [GaitSession])] {
+        let grouped = Dictionary(grouping: filteredSessions) { session in
+            Self.monthGroupFormatter.string(from: session.date)
+        }
+        return grouped
+            .sorted { $0.key > $1.key }
+            .map { key, value in
+                let displayDate = Self.monthGroupFormatter.date(from: key) ?? Date()
+                let display = Self.monthDisplayFormatter.string(from: displayDate)
+                return (key: key, display: display, sessions: value)
+            }
     }
 
     var body: some View {
@@ -36,22 +81,30 @@ struct SessionListView: View {
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
                 } else {
-                    ForEach(sessions) { session in
-                        if compareMode {
-                            compareRow(session: session)
-                        } else {
-                            NavigationLink(value: session) {
-                                SessionRow(session: session)
+                    ForEach(groupedSections, id: \.key) { section in
+                        Section(section.display) {
+                            ForEach(section.sessions) { session in
+                                if compareMode {
+                                    compareRow(session: session)
+                                } else {
+                                    NavigationLink(value: session) {
+                                        SessionRow(session: session)
+                                    }
+                                }
                             }
-                        }
-                    }
-                    .onDelete { offsets in
-                        if !compareMode {
-                            deleteSessions(at: offsets)
+                            .onDelete { offsets in
+                                if !compareMode {
+                                    deleteSessions(
+                                        sessions: section.sessions,
+                                        at: offsets
+                                    )
+                                }
+                            }
                         }
                     }
                 }
             }
+            .searchable(text: $searchText, prompt: "Search sessions")
             .navigationTitle("Sessions")
             .navigationDestination(for: GaitSession.self) { session in
                 SessionDetailView(session: session)
@@ -133,9 +186,9 @@ struct SessionListView: View {
         .disabled(selectedForCompare.count != 2)
     }
 
-    private func deleteSessions(at offsets: IndexSet) {
+    private func deleteSessions(sessions sectionSessions: [GaitSession], at offsets: IndexSet) {
         for index in offsets {
-            modelContext.delete(sessions[index])
+            modelContext.delete(sectionSessions[index])
         }
         try? modelContext.save()
     }
@@ -147,17 +200,17 @@ private struct SessionRow: View {
     let session: GaitSession
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: AppSpacing.sm) {
             HStack {
                 Text(session.date, style: .date)
                     .font(.headline)
                 Spacer()
                 if let score = session.postureScore {
-                    PostureScoreBadge(score: score)
+                    ScoreRingView(score: score, size: 40, lineWidth: 5)
                 }
             }
 
-            HStack(spacing: 16) {
+            HStack(spacing: AppSpacing.lg) {
                 Label(session.formattedDuration, systemImage: "clock")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
@@ -175,31 +228,7 @@ private struct SessionRow: View {
                 }
             }
         }
-        .padding(.vertical, 4)
-    }
-}
-
-// MARK: - Posture Score Badge
-
-struct PostureScoreBadge: View {
-    let score: Double
-
-    var body: some View {
-        Text(String(format: "%.0f", score))
-            .font(.caption.bold())
-            .padding(.horizontal, 8)
-            .padding(.vertical, 3)
-            .background(scoreColor.opacity(0.2), in: Capsule())
-            .foregroundStyle(scoreColor)
-    }
-
-    private var scoreColor: Color {
-        switch score {
-        case 80...100: return .green
-        case 60..<80: return .yellow
-        case 40..<60: return .orange
-        default: return .red
-        }
+        .padding(.vertical, AppSpacing.xs)
     }
 }
 

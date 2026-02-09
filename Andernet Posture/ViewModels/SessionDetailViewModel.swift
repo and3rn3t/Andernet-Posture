@@ -257,7 +257,7 @@ final class SessionDetailViewModel {
         if let kendall = session.kendallPosturalType {
             postureMetrics.append(ClinicalMetricItem(
                 label: "Postural Type (Kendall)",
-                value: kendallDisplayName(kendall),
+                value: kendall.kendallDisplayName,
                 severity: kendall == "ideal" ? .normal : .mild
             ))
         }
@@ -314,7 +314,7 @@ final class SessionDetailViewModel {
         if let pattern = session.gaitPatternClassification {
             gaitMetrics.append(ClinicalMetricItem(
                 label: "Gait Pattern",
-                value: patternDisplayName(pattern),
+                value: pattern.patternDisplayName,
                 severity: pattern == "normal" ? .normal : .mild
             ))
         }
@@ -491,28 +491,7 @@ final class SessionDetailViewModel {
 
     // MARK: - Helpers
 
-    private func kendallDisplayName(_ raw: String) -> String {
-        switch raw {
-        case "ideal": return "Ideal"
-        case "kyphosisLordosis": return "Kyphosis-Lordosis"
-        case "flatBack": return "Flat Back"
-        case "swayBack": return "Sway Back"
-        default: return raw.capitalized
-        }
-    }
 
-    private func patternDisplayName(_ raw: String) -> String {
-        switch raw {
-        case "normal": return "Normal"
-        case "antalgic": return "Antalgic"
-        case "trendelenburg": return "Trendelenburg"
-        case "festinating": return "Festinating"
-        case "circumduction": return "Circumduction"
-        case "ataxic": return "Ataxic"
-        case "waddling": return "Waddling"
-        default: return raw.capitalized
-        }
-    }
 
     private func nyprSeverity(_ score: Int, max: Int) -> ClinicalSeverity {
         let pct = Double(score) / Double(max) * 100

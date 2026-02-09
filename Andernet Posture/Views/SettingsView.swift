@@ -161,7 +161,7 @@ struct SettingsView: View {
                 }
 
                 // MARK: - About
-                Section("About") {
+                Section {
                     LabeledContent("Version") {
                         Text(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0")
                     }
@@ -173,6 +173,10 @@ struct SettingsView: View {
                     Link(destination: URL(string: "https://andernet.dev")!) {
                         Label("Andernet.dev", systemImage: "globe")
                     }
+                } header: {
+                    Label("About", systemImage: "info.circle")
+                } footer: {
+                    Text("Made with \u{2764}\u{FE0F} by Andernet")
                 }
 
                 // MARK: - Data
@@ -222,7 +226,7 @@ struct ClinicalDisclaimerSheet: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
+                VStack(alignment: .leading, spacing: AppSpacing.xl) {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .font(.system(size: 48))
                         .foregroundStyle(.orange)
@@ -244,8 +248,7 @@ struct ClinicalDisclaimerSheet: View {
                             .font(.headline)
                             .frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.large)
+                    .buttonStyle(PrimaryButtonStyle())
 
                     Button {
                         dismiss()
@@ -253,10 +256,9 @@ struct ClinicalDisclaimerSheet: View {
                         Text("Cancel")
                             .frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(.bordered)
-                    .controlSize(.large)
+                    .buttonStyle(SecondaryButtonStyle())
                 }
-                .padding()
+                .padding(AppSpacing.lg)
             }
             .navigationTitle("Disclaimer")
             .navigationBarTitleDisplayMode(.inline)
@@ -265,7 +267,7 @@ struct ClinicalDisclaimerSheet: View {
 
     @ViewBuilder
     private var disclaimerText: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: AppSpacing.md) {
             Group {
                 Text("This application provides posture and gait screening information only.")
                     .bold()
@@ -303,13 +305,13 @@ struct ClinicalDisclaimerSheet: View {
 
     @ViewBuilder
     private func bulletPoint(_ text: String) -> some View {
-        HStack(alignment: .top, spacing: 8) {
+        HStack(alignment: .top, spacing: AppSpacing.sm) {
             Text("•")
                 .font(.body)
             Text(text)
                 .font(.subheadline)
         }
-        .padding(.leading, 8)
+        .padding(.leading, AppSpacing.sm)
     }
 }
 

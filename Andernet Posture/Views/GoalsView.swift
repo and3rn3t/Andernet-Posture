@@ -199,7 +199,7 @@ struct GoalsView: View {
         value: String,
         @ViewBuilder content: () -> Content
     ) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: AppSpacing.sm) {
             HStack {
                 Image(systemName: icon)
                     .foregroundStyle(.blue)
@@ -209,10 +209,11 @@ struct GoalsView: View {
                 Text(value)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
+                    .contentTransition(.numericText())
             }
             content()
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, AppSpacing.xs)
     }
 
     @ViewBuilder
@@ -225,20 +226,20 @@ struct GoalsView: View {
     ) -> some View {
         let progress = target > 0 ? min(current / target, 1.0) : 0
 
-        HStack(spacing: 16) {
-            // Progress ring
-            ZStack {
-                Circle()
-                    .stroke(color.opacity(0.2), lineWidth: 6)
-                Circle()
-                    .trim(from: 0, to: progress)
-                    .stroke(color, style: StrokeStyle(lineWidth: 6, lineCap: .round))
-                    .rotationEffect(.degrees(-90))
+        HStack(spacing: AppSpacing.lg) {
+            // ScoreRingView as progress ring
+            ScoreRingView(
+                score: progress * 100,
+                maxScore: 100,
+                size: 48,
+                lineWidth: 6,
+                showLabel: false
+            )
+            .overlay {
                 Image(systemName: icon)
                     .font(.caption)
                     .foregroundStyle(color)
             }
-            .frame(width: 44, height: 44)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(label)
@@ -246,6 +247,7 @@ struct GoalsView: View {
                 Text(String(format: "%.0f%%", progress * 100))
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                    .contentTransition(.numericText())
             }
 
             Spacer()
@@ -254,7 +256,7 @@ struct GoalsView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, AppSpacing.xs)
     }
 
     private func formatProgress(current: Double, target: Double, label: String) -> String {

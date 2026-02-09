@@ -12,6 +12,7 @@ import Accessibility
 
 struct SessionDetailView: View {
     @State private var viewModel: SessionDetailViewModel
+    @State private var pulseOpacity: Double = 0.3
 
     init(session: GaitSession) {
         _viewModel = State(initialValue: SessionDetailViewModel(session: session))
@@ -19,7 +20,17 @@ struct SessionDetailView: View {
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 20) {
+            VStack(spacing: AppSpacing.xl) {
+                // MARK: - Hero Score Ring
+                if let score = viewModel.session.postureScore {
+                    VStack(spacing: AppSpacing.sm) {
+                        ScoreRingView(score: score, size: 140, lineWidth: 14)
+                        Text(viewModel.session.date.formatted(date: .abbreviated, time: .shortened))
+                            .font(AppFonts.metricLabel(.caption))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
                 // MARK: - Summary
                 summarySection
 
@@ -66,7 +77,7 @@ struct SessionDetailView: View {
                     stepAnalysisSection
                 }
             }
-            .padding()
+            .padding(AppSpacing.lg)
         }
         .navigationTitle(viewModel.session.date.formatted(date: .abbreviated, time: .shortened))
         .navigationBarTitleDisplayMode(.large)
@@ -91,18 +102,15 @@ struct SessionDetailView: View {
         LazyVGrid(columns: [
             GridItem(.flexible()),
             GridItem(.flexible())
-        ], spacing: 10) {
+        ], spacing: AppSpacing.sm) {
             ForEach(viewModel.summaryItems, id: \.label) { item in
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(item.label)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Text(item.value)
-                        .font(.title3.bold())
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding()
-                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
+                MetricCard(
+                    icon: summaryIcon(for: item.label),
+                    title: item.label,
+                    value: item.value,
+                    tintColor: summaryTint(for: item.label),
+                    compact: true
+                )
             }
         }
     }
@@ -111,13 +119,10 @@ struct SessionDetailView: View {
 
     @ViewBuilder
     private func clinicalSection(title: String, icon: String, items: [ClinicalMetricItem]) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Label(title, systemImage: icon)
-                .font(.headline)
-
+        SectionCard(title: title, icon: icon) {
             ForEach(items) { item in
                 HStack {
-                    VStack(alignment: .leading, spacing: 2) {
+                    VStack(alignment: .leading, spacing: AppSpacing.xs) {
                         Text(item.label)
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
@@ -130,53 +135,47 @@ struct SessionDetailView: View {
 
                     Spacer()
 
-                    HStack(spacing: 6) {
+                    HStack(spacing: AppSpacing.sm) {
                         Text(item.value)
                             .font(.subheadline.bold())
                         if let severity = item.severity {
-                            Circle()
-                                .fill(severityColor(severity))
-                                .frame(width: 8, height: 8)
+                            SeverityBadge(severity: severity, showLabel: true)
                         }
                     }
                 }
-                .padding(.vertical, 2)
+                .padding(.vertical, AppSpacing.xs)
 
                 if item.id != items.last?.id {
                     Divider()
                 }
             }
         }
-        .padding()
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
     }
 
     // MARK: - Pain Risk Alerts
 
     @ViewBuilder
     private var painAlertsSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: AppSpacing.md) {
             Label("Pain Risk Alerts", systemImage: "bolt.heart.fill")
-                .font(.headline)
+                .font(AppFonts.sectionHeader)
                 .foregroundStyle(.red)
 
             ForEach(viewModel.painAlerts, id: \.region) { alert in
                 HStack(alignment: .top) {
-                    Circle()
-                        .fill(severityColor(alert.severity))
-                        .frame(width: 10, height: 10)
-                        .padding(.top, 4)
+                    SeverityBadge(severity: alert.severity)
+                        .padding(.top, AppSpacing.xs)
 
-                    VStack(alignment: .leading, spacing: 4) {
+                    VStack(alignment: .leading, spacing: AppSpacing.xs) {
                         HStack {
                             Text(alert.region.rawValue.capitalized)
                                 .font(.subheadline.bold())
                             Spacer()
                             Text(String(format: "%.0f/100", alert.riskScore))
                                 .font(.caption.bold())
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 2)
-                                .background(severityColor(alert.severity).opacity(0.2), in: Capsule())
+                                .padding(.horizontal, AppSpacing.sm)
+                                .padding(.vertical, AppSpacing.xs)
+                                .background(AppColors.severityColor(for: alert.severity).opacity(0.2), in: Capsule())
                         }
 
                         if !alert.factors.isEmpty {
@@ -191,16 +190,31 @@ struct SessionDetailView: View {
                             .italic()
                     }
                 }
-                .padding(.vertical, 4)
+                .padding(.vertical, AppSpacing.xs)
 
                 if alert.region != viewModel.painAlerts.last?.region {
                     Divider()
                 }
             }
         }
-        .padding()
+        .padding(AppSpacing.lg)
         .background(.red.opacity(0.05))
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: AppRadius.medium))
+        .overlay(
+            Group {
+                if viewModel.painAlerts.contains(where: { $0.severity == .severe }) {
+                    RoundedRectangle(cornerRadius: AppRadius.medium)
+                        .strokeBorder(.red.opacity(pulseOpacity), lineWidth: 2)
+                }
+            }
+        )
+        .onAppear {
+            if viewModel.painAlerts.contains(where: { $0.severity == .severe }) {
+                withAnimation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true)) {
+                    pulseOpacity = 0.8
+                }
+            }
+        }
     }
 
     // MARK: - Charts Section
@@ -272,10 +286,7 @@ struct SessionDetailView: View {
 
     @ViewBuilder
     private func timeSeriesChart(title: String, data: [TimeSeriesPoint], color: Color, unit: String) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(title)
-                .font(.headline)
-
+        ChartCard(title: title, icon: "chart.xyaxis.line") {
             Chart(data) { point in
                 LineMark(
                     x: .value("Time (s)", point.time),
@@ -293,23 +304,17 @@ struct SessionDetailView: View {
             }
             .chartXAxisLabel("Time (sec)")
             .chartYAxisLabel(unit)
-            .frame(height: 200)
             .accessibilityChartDescriptor(
                 SessionChartDescriptor(title: title, data: data, unit: unit)
             )
         }
-        .padding()
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
     }
 
     // MARK: - Dual Series Chart (Left/Right)
 
     @ViewBuilder
     private func dualSeriesChart(title: String, leftData: [TimeSeriesPoint], rightData: [TimeSeriesPoint], unit: String) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(title)
-                .font(.headline)
-
+        ChartCard(title: title, icon: "chart.xyaxis.line") {
             Chart {
                 ForEach(leftData) { point in
                     LineMark(
@@ -335,21 +340,15 @@ struct SessionDetailView: View {
             .chartYAxisLabel(unit)
             .chartForegroundStyleScale(["Left": Color.blue, "Right": Color.red])
             .chartLegend(position: .bottom)
-            .frame(height: 200)
         }
-        .padding()
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
     }
 
     // MARK: - Step Analysis
 
     @ViewBuilder
     private var stepAnalysisSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Step Analysis")
-                .font(.headline)
-
-            HStack(spacing: 16) {
+        SectionCard(title: "Step Analysis", icon: "shoeprints.fill") {
+            HStack(spacing: AppSpacing.lg) {
                 if let left = viewModel.leftFootStats {
                     footCard(side: "Left", stats: left, color: .blue)
                 }
@@ -367,38 +366,51 @@ struct SessionDetailView: View {
                         .font(.subheadline.bold())
                         .foregroundStyle(sym > 0.9 ? .green : sym > 0.8 ? .yellow : .red)
                 }
-                .padding(.top, 4)
+                .padding(.top, AppSpacing.xs)
             }
         }
-        .padding()
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
     }
 
     @ViewBuilder
     private func footCard(side: String, stats: FootStats, color: Color) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: AppSpacing.xs) {
             Text(side)
                 .font(.caption.bold())
                 .foregroundStyle(color)
             Text(String(format: "%.2f m", stats.avgStride))
-                .font(.title3.bold())
+                .font(AppFonts.metricValue(.title3))
             Text("\(stats.count) steps")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding()
-        .background(color.opacity(0.1), in: RoundedRectangle(cornerRadius: 10))
+        .padding(AppSpacing.lg)
+        .background(color.opacity(0.1), in: RoundedRectangle(cornerRadius: AppRadius.small))
     }
 
     // MARK: - Helpers
 
-    private func severityColor(_ severity: ClinicalSeverity) -> Color {
-        switch severity {
-        case .normal: return .green
-        case .mild: return .yellow
-        case .moderate: return .orange
-        case .severe: return .red
+    private func summaryIcon(for label: String) -> String {
+        switch label {
+        case "Duration":       return "clock"
+        case "Posture Score":  return "gauge.high"
+        case "Walking Speed":  return "figure.walk"
+        case "Avg Cadence":    return "metronome"
+        case "Avg Stride":     return "ruler"
+        case "Total Steps":    return "shoeprints.fill"
+        case "Fall Risk":      return "exclamationmark.shield"
+        default:               return "info.circle"
+        }
+    }
+
+    private func summaryTint(for label: String) -> Color {
+        switch label {
+        case "Duration":       return .secondary
+        case "Posture Score":  return .green
+        case "Walking Speed", "Avg Cadence", "Avg Stride", "Total Steps":
+                               return .blue
+        case "Fall Risk":      return .red
+        default:               return .accentColor
         }
     }
 }

@@ -18,58 +18,66 @@ struct PostureGaitCaptureView: View {
     @AppStorage("samplingRate") private var samplingRate = 60.0
     @State private var coachingTip: String? = nil
     @State private var showCoachingTip = false
+    @State private var captureStarted = false
+    @State private var pulseScale: CGFloat = 1.0
 
     var body: some View {
         ZStack {
-            // Full-screen AR body tracking
-            BodyARView(viewModel: viewModel, showSkeleton: skeletonOverlay, samplingRate: samplingRate)
-                .ignoresSafeArea()
+            if captureStarted {
+                // Full-screen AR body tracking
+                BodyARView(viewModel: viewModel, showSkeleton: skeletonOverlay, samplingRate: samplingRate)
+                    .ignoresSafeArea()
 
-            // Darkened overlay for readability on camera feed
-            Color.black.opacity(0.15)
-                .ignoresSafeArea()
-                .allowsHitTesting(false)
+                // Darkened overlay for readability on camera feed
+                Color.black.opacity(0.15)
+                    .ignoresSafeArea()
+                    .allowsHitTesting(false)
 
-            VStack {
-                // MARK: - Top metrics bar
-                topMetricsBar
-                    .padding(.horizontal)
-                    .padding(.top, 8)
+                VStack {
+                    // MARK: - Top metrics bar
+                    topMetricsBar
+                        .padding(.horizontal)
+                        .padding(.top, AppSpacing.sm)
 
-                Spacer()
+                    Spacer()
 
-                // MARK: - Calibration prompt
-                if viewModel.recordingState == .calibrating {
-                    calibrationOverlay
+                    // MARK: - Calibration prompt
+                    if viewModel.recordingState == .calibrating {
+                        calibrationOverlay
+                    }
+
+                    // MARK: - Coaching tip
+                    if showCoachingTip, let tip = coachingTip {
+                        coachingTipView(tip)
+                            .transition(.move(edge: .top).combined(with: .opacity))
+                            .padding(.bottom, AppSpacing.sm)
+                    }
+
+                    // MARK: - Error message
+                    if let error = viewModel.errorMessage {
+                        Text(error)
+                            .font(.caption)
+                            .foregroundStyle(.red)
+                            .padding(AppSpacing.sm)
+                            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: AppRadius.small))
+                            .padding(.bottom, AppSpacing.sm)
+                    }
+
+                    // MARK: - AR Overlay mode selector
+                    CaptureAROverlayBar()
+                        .padding(.bottom, AppSpacing.sm)
+
+                    // MARK: - Bottom control bar
+                    bottomControls
+                        .padding(.horizontal)
+                        .padding(.bottom, AppSpacing.lg)
                 }
-
-                // MARK: - Coaching tip
-                if showCoachingTip, let tip = coachingTip {
-                    coachingTipView(tip)
-                        .transition(.move(edge: .top).combined(with: .opacity))
-                        .padding(.bottom, 8)
-                }
-
-                // MARK: - Error message
-                if let error = viewModel.errorMessage {
-                    Text(error)
-                        .font(.caption)
-                        .foregroundStyle(.red)
-                        .padding(8)
-                        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 8))
-                        .padding(.bottom, 8)
-                }
-
-                // MARK: - AR Overlay mode selector
-                CaptureAROverlayBar()
-                    .padding(.bottom, 8)
-
-                // MARK: - Bottom control bar
-                bottomControls
-                    .padding(.horizontal)
-                    .padding(.bottom, 16)
+            } else {
+                landingView
             }
         }
+        .animation(.easeInOut(duration: 0.3), value: captureStarted)
+        .animation(.easeInOut(duration: 0.3), value: viewModel.recordingState)
         .statusBarHidden()
         .onChange(of: viewModel.isBodyDetected) { evaluateCoachingTip() }
         .onChange(of: viewModel.postureScore) { evaluateCoachingTip() }
@@ -85,13 +93,19 @@ struct PostureGaitCaptureView: View {
 
     @ViewBuilder
     private var topMetricsBar: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: AppSpacing.md) {
+            // Recording indicator
+            if viewModel.recordingState == .recording {
+                recordingIndicator
+            }
+
             // Timer
             VStack(spacing: 2) {
                 Image(systemName: "timer")
                     .font(.caption2)
-                Text(formattedTime)
-                    .font(.system(.body, design: .monospaced).bold())
+                Text(viewModel.elapsedTime.mmss)
+                    .font(AppFonts.metricValue(.body))
+                    .contentTransition(.numericText())
             }
 
             Divider().frame(height: 36)
@@ -101,7 +115,8 @@ struct PostureGaitCaptureView: View {
                 Image(systemName: "figure.stand")
                     .font(.caption2)
                 Text(String(format: "%.0f", viewModel.postureScore))
-                    .font(.system(.body, design: .rounded).bold())
+                    .font(AppFonts.metricValue(.body))
+                    .contentTransition(.numericText())
             }
 
             Divider().frame(height: 36)
@@ -110,8 +125,9 @@ struct PostureGaitCaptureView: View {
             VStack(spacing: 2) {
                 Image(systemName: "arrow.up.and.down")
                     .font(.caption2)
-                Text(String(format: "%.1f°", viewModel.trunkLeanDeg))
-                    .font(.system(.body, design: .rounded).bold())
+                Text(viewModel.trunkLeanDeg.degreesString)
+                    .font(AppFonts.metricValue(.body))
+                    .contentTransition(.numericText())
             }
 
             Divider().frame(height: 36)
@@ -121,7 +137,8 @@ struct PostureGaitCaptureView: View {
                 Image(systemName: "metronome")
                     .font(.caption2)
                 Text(String(format: "%.0f", viewModel.cadenceSPM))
-                    .font(.system(.body, design: .rounded).bold())
+                    .font(AppFonts.metricValue(.body))
+                    .contentTransition(.numericText())
             }
 
             Divider().frame(height: 36)
@@ -131,12 +148,13 @@ struct PostureGaitCaptureView: View {
                 Image(systemName: "shoeprints.fill")
                     .font(.caption2)
                 Text("\(viewModel.stepCount)")
-                    .font(.system(.body, design: .rounded).bold())
+                    .font(AppFonts.metricValue(.body))
+                    .contentTransition(.numericText())
             }
         }
         .foregroundStyle(.white)
         .padding(.vertical, 10)
-        .padding(.horizontal, 16)
+        .padding(.horizontal, AppSpacing.lg)
         .background(.ultraThinMaterial, in: Capsule())
     }
 
@@ -144,7 +162,7 @@ struct PostureGaitCaptureView: View {
 
     @ViewBuilder
     private var calibrationOverlay: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: AppSpacing.lg) {
             Image(systemName: "figure.stand")
                 .font(.system(size: 60))
                 .foregroundStyle(.white)
@@ -158,15 +176,15 @@ struct PostureGaitCaptureView: View {
                 .font(.subheadline)
                 .foregroundStyle(.white.opacity(0.7))
         }
-        .padding(32)
-        .background(.ultraThinMaterial.opacity(0.8), in: RoundedRectangle(cornerRadius: 24))
+        .padding(AppSpacing.xxxl)
+        .background(.ultraThinMaterial.opacity(0.8), in: RoundedRectangle(cornerRadius: AppRadius.large))
     }
 
     // MARK: - Bottom Controls
 
     @ViewBuilder
     private var bottomControls: some View {
-        HStack(spacing: 24) {
+        HStack(spacing: AppSpacing.xxl) {
             switch viewModel.recordingState {
             case .idle:
                 // Start button
@@ -268,16 +286,16 @@ struct PostureGaitCaptureView: View {
                 .controlSize(.large)
             }
         }
-        .padding(.vertical, 12)
-        .padding(.horizontal, 20)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20))
+        .padding(.vertical, AppSpacing.md)
+        .padding(.horizontal, AppSpacing.xl)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: AppSpacing.xl))
     }
 
     // MARK: - Coaching Tip
 
     @ViewBuilder
     private func coachingTipView(_ tip: String) -> some View {
-        HStack(spacing: 8) {
+        HStack(spacing: AppSpacing.sm) {
             Image(systemName: "lightbulb.fill")
                 .font(.subheadline)
                 .foregroundStyle(.yellow)
@@ -285,7 +303,7 @@ struct PostureGaitCaptureView: View {
                 .font(.subheadline)
                 .foregroundStyle(.white)
         }
-        .padding(.horizontal, 16)
+        .padding(.horizontal, AppSpacing.lg)
         .padding(.vertical, 10)
         .background(.ultraThinMaterial, in: Capsule())
     }
@@ -303,7 +321,7 @@ struct PostureGaitCaptureView: View {
 
         if let newTip = tip, newTip != coachingTip {
             coachingTip = newTip
-            withAnimation(.easeInOut(duration: 0.3)) {
+            withAnimation(.spring(duration: 0.4, bounce: 0.3)) {
                 showCoachingTip = true
             }
             Task {
@@ -315,13 +333,67 @@ struct PostureGaitCaptureView: View {
         }
     }
 
-    // MARK: - Helpers
+    // MARK: - Pre-capture Landing
 
-    private var formattedTime: String {
-        let total = Int(viewModel.elapsedTime)
-        let minutes = total / 60
-        let seconds = total % 60
-        return String(format: "%d:%02d", minutes, seconds)
+    @ViewBuilder
+    private var landingView: some View {
+        VStack {
+            Spacer()
+
+            VStack(spacing: AppSpacing.xl) {
+                Image(systemName: "figure.walk")
+                    .font(.system(size: 80))
+                    .symbolEffect(.pulse)
+                    .foregroundStyle(.accentColor)
+
+                Text("Ready to Capture")
+                    .font(.title.bold())
+
+                Text("Position your device so your full body is visible, then tap Start.")
+                    .font(.body)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, AppSpacing.xxxl)
+
+                Button("Start Capture") {
+                    withAnimation {
+                        captureStarted = true
+                    }
+                }
+                .buttonStyle(PrimaryButtonStyle())
+                .padding(.horizontal, AppSpacing.xxxl)
+            }
+
+            Spacer()
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(AppColors.brandedBackground)
+    }
+
+    // MARK: - Recording Indicator
+
+    @ViewBuilder
+    private var recordingIndicator: some View {
+        ZStack {
+            Circle()
+                .stroke(.red.opacity(0.3), lineWidth: 3)
+                .frame(width: 20, height: 20)
+
+            Circle()
+                .fill(.red)
+                .frame(width: 10, height: 10)
+
+            Circle()
+                .stroke(.red, lineWidth: 2)
+                .frame(width: 20, height: 20)
+                .scaleEffect(pulseScale)
+                .opacity(2 - pulseScale)
+        }
+        .onAppear {
+            withAnimation(.easeInOut(duration: 1.0).repeatForever(autoreverses: false)) {
+                pulseScale = 2.0
+            }
+        }
     }
 }
 
