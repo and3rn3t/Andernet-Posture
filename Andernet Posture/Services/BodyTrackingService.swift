@@ -67,11 +67,11 @@ final class ARBodyTrackingService: NSObject, BodyTrackingService, ARSessionDeleg
         var positions: [JointName: SIMD3<Float>] = [:]
 
         for joint in trackedJoints {
-            if let index = skeleton.definition.index(for: ARSkeleton.JointName(rawValue: joint.jointPath)) {
-                let modelT = skeleton.jointModelTransforms[index]
-                let worldT = simd_mul(rootTransform, modelT)
-                positions[joint] = SIMD3<Float>(worldT.columns.3.x, worldT.columns.3.y, worldT.columns.3.z)
-            }
+            let index = skeleton.definition.index(for: ARSkeleton.JointName(rawValue: joint.jointPath))
+            guard index != NSNotFound else { continue }
+            let modelT = skeleton.jointModelTransforms[index]
+            let worldT = simd_mul(rootTransform, modelT)
+            positions[joint] = SIMD3<Float>(worldT.columns.3.x, worldT.columns.3.y, worldT.columns.3.z)
         }
 
         let timestamp = session.currentFrame?.timestamp ?? CACurrentMediaTime()

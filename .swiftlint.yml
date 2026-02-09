@@ -62,6 +62,8 @@ function_parameter_count:
 type_name:
   min_length: 3
   max_length: 50
+  allowed_symbols:
+    - _
 
 identifier_name:
   min_length:

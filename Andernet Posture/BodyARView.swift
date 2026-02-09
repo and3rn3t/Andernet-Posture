@@ -101,7 +101,8 @@ extension BodyARView {
             for joint in JointName.allCases {
                 let path = joint.jointPath
                 let skeleton = body.skeleton
-                guard let idx = skeleton.definition.index(for: ARSkeleton.JointName(rawValue: path)) else { continue }
+                let idx = skeleton.definition.index(for: ARSkeleton.JointName(rawValue: path))
+                guard idx != NSNotFound else { continue }
                 let modelT = skeleton.jointModelTransforms[idx]
                 let worldT = simd_mul(rootTransform, modelT)
                 let pos = SIMD3<Float>(worldT.columns.3.x, worldT.columns.3.y, worldT.columns.3.z)
