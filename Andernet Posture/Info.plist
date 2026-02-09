@@ -21,5 +21,10 @@
 	<string>This app saves posture and gait session summaries to Apple Health so you can track progress over time.</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<key>UILaunchScreen</key>
+	<dict>
+		<key>BackgroundColor</key>
+		<string>LaunchBackground</string>
+	</dict>
 </dict>
 </plist>

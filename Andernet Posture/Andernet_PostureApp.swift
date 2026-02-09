@@ -16,6 +16,7 @@ struct Andernet_PostureApp: App {
 
     let sharedModelContainer: ModelContainer
     @State private var containerError: String?
+    @State private var showSplash = true
 
     init() {
         let schema = Schema([GaitSession.self])
@@ -42,10 +43,26 @@ struct Andernet_PostureApp: App {
 
     var body: some Scene {
         WindowGroup {
-            if hasCompletedOnboarding {
-                MainTabView()
-            } else {
-                OnboardingView(hasCompletedOnboarding: $hasCompletedOnboarding)
+            ZStack {
+                if hasCompletedOnboarding {
+                    MainTabView()
+                } else {
+                    OnboardingView(hasCompletedOnboarding: $hasCompletedOnboarding)
+                }
+
+                if showSplash {
+                    SplashScreenView()
+                        .transition(.opacity)
+                        .zIndex(1)
+                }
+            }
+            .onAppear {
+                // Dismiss splash after animation completes
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2.8) {
+                    withAnimation(.easeOut(duration: 0.5)) {
+                        showSplash = false
+                    }
+                }
             }
         }
         .modelContainer(sharedModelContainer)
