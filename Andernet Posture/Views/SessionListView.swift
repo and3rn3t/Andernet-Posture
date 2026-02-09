@@ -14,6 +14,7 @@ struct SessionListView: View {
     @State private var compareMode = false
     @State private var selectedForCompare: Set<PersistentIdentifier> = []
     @State private var navigateToComparison = false
+    @State private var navigateToProgress = false
     @State private var searchText = ""
     @Namespace private var sessionNamespace
 
@@ -118,6 +119,9 @@ struct SessionListView: View {
                     EmptyView()
                 }
             }
+            .navigationDestination(isPresented: $navigateToProgress) {
+                ProgressHistoryView(sessions: Array(sessions))
+            }
             .toolbar(content: sessionToolbar)
             .sensoryFeedback(.selection, trigger: compareMode)
         }
@@ -148,7 +152,16 @@ struct SessionListView: View {
                 if compareMode {
                     compareButton
                 } else {
-                    EditButton()
+                    HStack(spacing: AppSpacing.md) {
+                        Button {
+                            navigateToProgress = true
+                        } label: {
+                            Image(systemName: "chart.line.uptrend.xyaxis")
+                        }
+                        .accessibilityLabel("View progress history")
+
+                        EditButton()
+                    }
                 }
             }
         }
