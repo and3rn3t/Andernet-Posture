@@ -134,6 +134,9 @@ extension ExportService {
 
     /// Frame-by-frame CSV export with all body-tracking fields.
     static func generateFramesCSV(for session: GaitSession) -> Data {
+        let csvToken = PerformanceMonitor.begin(.csvGeneration)
+        defer { PerformanceMonitor.end(csvToken) }
+
         let frames = session.decodedFrames
         var rows: [String] = []
         rows.append(framesHeader())
@@ -242,6 +245,9 @@ extension ExportService {
 
     /// One row per session with all summary metrics.
     static func generateMultiSessionCSV(sessions: [GaitSession]) -> Data {
+        let csvToken = PerformanceMonitor.begin(.csvGeneration)
+        defer { PerformanceMonitor.end(csvToken) }
+
         var rows: [String] = []
         rows.append(multiSessionHeader())
         for session in sessions {
@@ -338,9 +344,14 @@ extension ExportService {
     /// Generate a clinical-style multi-page PDF report.
     @MainActor
     static func generatePDFReport(for session: GaitSession) -> Data {
+        let pdfToken = PerformanceMonitor.begin(.pdfGeneration)
+        defer { PerformanceMonitor.end(pdfToken) }
+
         let pageRect = CGRect(x: 0, y: 0, width: PDF.pageWidth, height: PDF.pageHeight)
         let renderer = UIGraphicsPDFRenderer(bounds: pageRect)
-        let analysis = SessionAnalysisEngine.analyze(session: session)
+        let analysis = PerformanceMonitor.measure(.sessionAnalysis) {
+            SessionAnalysisEngine.analyze(session: session)
+        }
 
         let data = renderer.pdfData { context in
             // Page 1: Header + Summary

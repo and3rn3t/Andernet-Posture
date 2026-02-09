@@ -39,4 +39,7 @@ enum AppLogger {
     
     /// Clinical test protocols (TUG, Romberg, 6MWT)
     static let clinicalTests = Logger(subsystem: subsystem, category: "ClinicalTests")
+    
+    /// Performance monitoring and profiling
+    static let performance = Logger(subsystem: subsystem, category: "Performance")
 }

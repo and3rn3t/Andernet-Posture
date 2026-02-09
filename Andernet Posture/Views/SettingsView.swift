@@ -187,6 +187,19 @@ struct SettingsView: View {
                         Label("Manage Data", systemImage: "externaldrive.fill")
                     }
                 }
+
+                // MARK: - Developer / Performance
+                #if DEBUG
+                Section {
+                    NavigationLink {
+                        PerformanceReportView()
+                    } label: {
+                        Label("Performance Monitor", systemImage: "gauge.with.dots.needle.33percent")
+                    }
+                } header: {
+                    Label("Developer", systemImage: "hammer")
+                }
+                #endif
             }
             .navigationTitle("Settings")
         }

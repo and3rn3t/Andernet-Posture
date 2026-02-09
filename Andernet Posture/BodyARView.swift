@@ -130,6 +130,7 @@ extension BodyARView {
 
             // Extract joint positions on this (nonisolated) thread to avoid
             // main-actor access to JointName.jointPath inside the main-actor block.
+            let jointToken = PerformanceMonitor.begin(.jointExtraction)
             var joints: [JointName: SIMD3<Float>] = [:]
             let allJoints = JointName.allCases   // enum value, Sendable
             for joint in allJoints {
@@ -141,6 +142,7 @@ extension BodyARView {
                 let worldT = simd_mul(rootTransform, modelT)
                 joints[joint] = SIMD3<Float>(worldT.columns.3.x, worldT.columns.3.y, worldT.columns.3.z)
             }
+            PerformanceMonitor.end(jointToken)
 
             let timestamp = session.currentFrame?.timestamp ?? CACurrentMediaTime()
 
@@ -169,6 +171,9 @@ extension BodyARView {
         // MARK: Private — skeleton visualization
 
         private func updateSkeletonOverlay(joints: [JointName: SIMD3<Float>]) {
+            let overlayToken = PerformanceMonitor.begin(.skeletonOverlay)
+            defer { PerformanceMonitor.end(overlayToken) }
+
             // If skeleton overlay is disabled, hide everything and return early
             guard showSkeleton else {
                 for (_, entity) in jointEntities { entity.isEnabled = false }
@@ -222,6 +227,7 @@ extension BodyARView {
             if let renderer = overlayRenderer,
                let config = overlayConfig,
                let entities = cachedSkeletonEntities {
+                let renderToken = PerformanceMonitor.begin(.overlayRendering)
                 let metrics = OverlayMetrics(
                     severities: viewModel.severities,
                     postureScore: viewModel.postureScore,
@@ -239,6 +245,7 @@ extension BodyARView {
                     entities: entities,
                     metrics: metrics
                 )
+                PerformanceMonitor.end(renderToken)
             }
         }
     }

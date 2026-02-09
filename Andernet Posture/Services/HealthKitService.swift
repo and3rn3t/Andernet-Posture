@@ -129,6 +129,9 @@ final class DefaultHealthKitService: HealthKitService {
         start: Date,
         end: Date
     ) async throws {
+        let hkToken = PerformanceMonitor.begin(.healthKitSave)
+        defer { PerformanceMonitor.end(hkToken) }
+
         var samples: [HKQuantitySample] = []
 
         if steps > 0 {
@@ -174,6 +177,9 @@ final class DefaultHealthKitService: HealthKitService {
     // MARK: Read
 
     func fetchSteps(from start: Date, to end: Date) async throws -> Double {
+        let fetchToken = PerformanceMonitor.begin(.healthKitFetch)
+        defer { PerformanceMonitor.end(fetchToken) }
+
         let type = HKQuantityType(.stepCount)
         let predicate = HKQuery.predicateForSamples(withStart: start, end: end)
 

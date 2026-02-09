@@ -71,6 +71,9 @@ final class DefaultInsightsEngine: InsightsEngine {
     private let calendar = Calendar.current
 
     func generateInsights(from sessions: [GaitSession]) -> [Insight] {
+        let insightToken = PerformanceMonitor.begin(.insightsGeneration)
+        defer { PerformanceMonitor.end(insightToken) }
+
         guard !sessions.isEmpty else { return [] }
 
         let sorted = sessions.sorted { $0.date < $1.date }

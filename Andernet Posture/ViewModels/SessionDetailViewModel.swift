@@ -82,13 +82,18 @@ final class SessionDetailViewModel {
     // MARK: - Decode & Compute
 
     private func decode() {
+        let decodeToken = PerformanceMonitor.begin(.sessionDecode)
+        defer { PerformanceMonitor.end(decodeToken) }
+
         let frames = session.decodedFrames
         let steps = session.decodedStepEvents
 
         guard !frames.isEmpty else {
             buildSummary()
             buildClinicalSections()
-            sessionAnalysis = SessionAnalysisEngine.analyze(session: session)
+            sessionAnalysis = PerformanceMonitor.measure(.sessionAnalysis) {
+                SessionAnalysisEngine.analyze(session: session)
+            }
             return
         }
         let startTime = frames.first!.timestamp
@@ -155,7 +160,9 @@ final class SessionDetailViewModel {
 
         buildSummary()
         buildClinicalSections()
-        sessionAnalysis = SessionAnalysisEngine.analyze(session: session)
+        sessionAnalysis = PerformanceMonitor.measure(.sessionAnalysis) {
+            SessionAnalysisEngine.analyze(session: session)
+        }
     }
 
     private func buildSummary() {

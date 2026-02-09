@@ -192,6 +192,9 @@ final class CaptureViewModel {
     @MainActor
     // swiftlint:disable:next function_body_length
     func saveSession(context: ModelContext) -> GaitSession? {
+        let saveToken = PerformanceMonitor.begin(.sessionSave)
+        defer { PerformanceMonitor.end(saveToken) }
+
         let frames = recorder.collectedFrames()
         let steps = recorder.collectedSteps()
         let motionFrames = recorder.collectedMotionFrames()
@@ -388,6 +391,9 @@ final class CaptureViewModel {
     /// Called by BodyARView.Coordinator on each ARBodyAnchor update.
     // swiftlint:disable:next function_body_length
     func handleBodyFrame(joints: [JointName: SIMD3<Float>], timestamp: TimeInterval) {
+        let frameToken = PerformanceMonitor.begin(.frameProcessing)
+        defer { PerformanceMonitor.end(frameToken) }
+
         isBodyDetected = true
 
         // Handle calibration → recording transition (time-based: 3 seconds)
@@ -411,7 +417,7 @@ final class CaptureViewModel {
 
         // ── Posture analysis ──
         var currentPosture: PostureMetrics?
-        if let postureMetrics = postureAnalyzer.analyze(joints: joints) {
+        if let postureMetrics = PerformanceMonitor.measure(.postureAnalysis, body: { postureAnalyzer.analyze(joints: joints) }) {
             currentPosture = postureMetrics
             trunkLeanDeg = postureMetrics.sagittalTrunkLeanDeg
             lateralLeanDeg = postureMetrics.frontalTrunkLeanDeg
@@ -436,7 +442,9 @@ final class CaptureViewModel {
         }
 
         // ── Gait analysis ──
-        let gaitMetrics = gaitAnalyzer.processFrame(joints: joints, timestamp: timestamp)
+        let gaitMetrics = PerformanceMonitor.measure(.gaitAnalysis) {
+            gaitAnalyzer.processFrame(joints: joints, timestamp: timestamp)
+        }
         cadenceSPM = gaitMetrics.cadenceSPM
         avgStrideLengthM = gaitMetrics.avgStrideLengthM
         symmetryPercent = gaitMetrics.symmetryPercent
@@ -445,7 +453,9 @@ final class CaptureViewModel {
 
         // ── ROM analysis (every 3rd frame) ──
         if frameIndex % 3 == 0 {
-            let romMetrics = romAnalyzer.analyze(joints: joints)
+            let romMetrics = PerformanceMonitor.measure(.romAnalysis) {
+                romAnalyzer.analyze(joints: joints)
+            }
             romAnalyzer.recordFrame(romMetrics)
             hipFlexionLeftDeg = romMetrics.hipFlexionLeftDeg
             hipFlexionRightDeg = romMetrics.hipFlexionRightDeg
@@ -466,7 +476,9 @@ final class CaptureViewModel {
         // ── Balance analysis (every 2nd frame) ──
         if frameIndex % 2 == 0 {
             if let root = joints[.root] {
-                let balanceMetrics = balanceAnalyzer.processFrame(rootPosition: root, timestamp: timestamp)
+                let balanceMetrics = PerformanceMonitor.measure(.balanceAnalysis) {
+                    balanceAnalyzer.processFrame(rootPosition: root, timestamp: timestamp)
+                }
                 swayVelocityMMS = balanceMetrics.swayVelocityMMS
                 isStanding = balanceAnalyzer.isStanding
             }
@@ -474,20 +486,24 @@ final class CaptureViewModel {
 
         // ── REBA (throttled — every 10th frame) ──
         if frameIndex % 10 == 0 {
-            let reba = ergonomicScorer.computeREBA(joints: joints)
+            let reba = PerformanceMonitor.measure(.ergonomicScoring) {
+                ergonomicScorer.computeREBA(joints: joints)
+            }
             rebaScore = reba.score
         }
 
         // ── Fatigue tracking (every 6th frame) ──
         if frameIndex % 6 == 0 {
-            fatigueAnalyzer.recordTimePoint(
-                timestamp: timestamp,
-                postureScore: postureScore,
-                trunkLeanDeg: trunkLeanDeg,
-                lateralLeanDeg: lateralLeanDeg,
-                cadenceSPM: cadenceSPM,
-                walkingSpeedMPS: walkingSpeedMPS
-            )
+            PerformanceMonitor.measure(.fatigueTracking) {
+                fatigueAnalyzer.recordTimePoint(
+                    timestamp: timestamp,
+                    postureScore: postureScore,
+                    trunkLeanDeg: trunkLeanDeg,
+                    lateralLeanDeg: lateralLeanDeg,
+                    cadenceSPM: cadenceSPM,
+                    walkingSpeedMPS: walkingSpeedMPS
+                )
+            }
         }
 
         // ── Record detected step ──
@@ -512,7 +528,8 @@ final class CaptureViewModel {
         }
 
         // ── Record body frame ──
-        let frame = BodyFrame(
+        PerformanceMonitor.measure(.frameRecording) {
+            let frame = BodyFrame(
             timestamp: timestamp,
             joints: joints,
             sagittalTrunkLeanDeg: trunkLeanDeg,
@@ -545,6 +562,7 @@ final class CaptureViewModel {
             gaitPatternRaw: nil
         )
         recorder.recordFrame(frame)
+        }
     }
 
     private func startTimer() {

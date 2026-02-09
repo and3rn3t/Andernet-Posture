@@ -88,6 +88,9 @@ final class DashboardViewModel {
 
     /// Recompute dashboard from the given sessions (call on appear or after capture).
     func refresh(sessions: [GaitSession]) {
+        let dashToken = PerformanceMonitor.begin(.dashboardRefresh)
+        defer { PerformanceMonitor.end(dashToken) }
+
         totalSessions = sessions.count
 
         guard !sessions.isEmpty else {
