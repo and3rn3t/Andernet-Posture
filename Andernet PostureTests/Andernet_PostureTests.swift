@@ -216,3 +216,289 @@ struct SessionRecorderTests {
         #expect(recorder.frameCount == 1)
     }
 }
+
+// MARK: - DashboardViewModel Tests
+
+struct DashboardViewModelTests {
+
+    @Test func refreshWithNoSessions() async throws {
+        let vm = DashboardViewModel()
+        vm.refresh(sessions: [])
+
+        #expect(vm.totalSessions == 0)
+        #expect(vm.recentPostureScore == nil)
+        #expect(vm.recentCadence == nil)
+        #expect(vm.recentStrideLength == nil)
+        #expect(vm.totalWalkingTime == 0)
+        #expect(vm.postureScoreTrend.isEmpty)
+        #expect(vm.cadenceTrend.isEmpty)
+        #expect(vm.strideLengthTrend.isEmpty)
+    }
+
+    @Test func refreshPopulatesRecentMetrics() async throws {
+        let vm = DashboardViewModel()
+        let sessions = [
+            GaitSession(
+                date: Date(timeIntervalSince1970: 1000),
+                duration: 120,
+                averageCadenceSPM: 100,
+                averageStrideLengthM: 0.65,
+                postureScore: 72
+            ),
+            GaitSession(
+                date: Date(timeIntervalSince1970: 2000),
+                duration: 180,
+                averageCadenceSPM: 115,
+                averageStrideLengthM: 0.75,
+                postureScore: 88
+            ),
+        ]
+
+        vm.refresh(sessions: sessions)
+
+        #expect(vm.totalSessions == 2)
+        // Most recent session (date: 2000) should be the "recent" one
+        #expect(vm.recentPostureScore == 88)
+        #expect(vm.recentCadence == 115)
+        #expect(vm.recentStrideLength == 0.75)
+        #expect(vm.totalWalkingTime == 300) // 120 + 180
+    }
+
+    @Test func trendDataMatchesSessionCount() async throws {
+        let vm = DashboardViewModel()
+        let sessions = (0..<5).map { i in
+            GaitSession(
+                date: Date(timeIntervalSince1970: Double(i) * 1000),
+                duration: 60,
+                averageCadenceSPM: 100 + Double(i),
+                averageStrideLengthM: 0.6 + Double(i) * 0.02,
+                postureScore: 70 + Double(i) * 5
+            )
+        }
+
+        vm.refresh(sessions: sessions)
+
+        #expect(vm.postureScoreTrend.count == 5)
+        #expect(vm.cadenceTrend.count == 5)
+        #expect(vm.strideLengthTrend.count == 5)
+    }
+
+    @Test func trendSkipsSessionsWithNilValues() async throws {
+        let vm = DashboardViewModel()
+        let sessions = [
+            GaitSession(
+                date: Date(timeIntervalSince1970: 1000),
+                duration: 60,
+                averageCadenceSPM: 100,
+                postureScore: 80
+            ),
+            GaitSession(
+                date: Date(timeIntervalSince1970: 2000),
+                duration: 60,
+                averageCadenceSPM: nil,
+                postureScore: nil
+            ),
+        ]
+
+        vm.refresh(sessions: sessions)
+
+        #expect(vm.postureScoreTrend.count == 1)
+        #expect(vm.cadenceTrend.count == 1)
+    }
+
+    @Test func postureLabelMappings() async throws {
+        let vm = DashboardViewModel()
+
+        // No data
+        #expect(vm.postureLabel == "No data")
+
+        vm.recentPostureScore = 90
+        #expect(vm.postureLabel == "Excellent")
+
+        vm.recentPostureScore = 70
+        #expect(vm.postureLabel == "Good")
+
+        vm.recentPostureScore = 50
+        #expect(vm.postureLabel == "Fair")
+
+        vm.recentPostureScore = 30
+        #expect(vm.postureLabel == "Needs Improvement")
+    }
+
+    @Test func formattedTotalTime() async throws {
+        let vm = DashboardViewModel()
+
+        vm.totalWalkingTime = 300 // 5 min
+        #expect(vm.formattedTotalTime == "5 min")
+
+        vm.totalWalkingTime = 3900 // 1h 5m
+        #expect(vm.formattedTotalTime == "1h 5m")
+    }
+
+    @Test func trendCapsAt30Sessions() async throws {
+        let vm = DashboardViewModel()
+        let sessions = (0..<50).map { i in
+            GaitSession(
+                date: Date(timeIntervalSince1970: Double(i) * 1000),
+                duration: 60,
+                postureScore: Double(50 + i)
+            )
+        }
+
+        vm.refresh(sessions: sessions)
+
+        #expect(vm.postureScoreTrend.count == 30)
+    }
+}
+
+// MARK: - SessionDetailViewModel Tests
+
+struct SessionDetailViewModelTests {
+
+    @Test func emptySessionProducesNoSeries() async throws {
+        let session = GaitSession(date: .now, duration: 0)
+        let vm = SessionDetailViewModel(session: session)
+
+        #expect(vm.trunkLeanSeries.isEmpty)
+        #expect(vm.lateralLeanSeries.isEmpty)
+        #expect(vm.cadenceSeries.isEmpty)
+        #expect(vm.strideSeries.isEmpty)
+        #expect(vm.leftFootStats == nil)
+        #expect(vm.rightFootStats == nil)
+        #expect(vm.symmetryRatio == nil)
+    }
+
+    @Test func summaryContainsDuration() async throws {
+        let session = GaitSession(
+            date: .now,
+            duration: 90,
+            averageCadenceSPM: 110,
+            averageStrideLengthM: 0.72,
+            averageTrunkLeanDeg: 5.0,
+            postureScore: 85,
+            totalSteps: 42
+        )
+        let vm = SessionDetailViewModel(session: session)
+
+        let labels = vm.summaryItems.map(\.label)
+        #expect(labels.contains("Duration"))
+        #expect(labels.contains("Posture Score"))
+        #expect(labels.contains("Avg Cadence"))
+        #expect(labels.contains("Avg Stride"))
+        #expect(labels.contains("Total Steps"))
+    }
+
+    @Test func timeSeriesDecimation() async throws {
+        // Create frames at 30 Hz for 2 seconds (60 frames)
+        let baseTime: TimeInterval = 1000
+        let frames = (0..<60).map { i in
+            BodyFrame(
+                timestamp: baseTime + Double(i) / 30.0,
+                joints: [:],
+                trunkLeanDeg: 3.0 + Double(i) * 0.05,
+                lateralLeanDeg: 1.0,
+                cadenceSPM: 110,
+                avgStrideLengthM: 0.7
+            )
+        }
+        let framesData = GaitSession.encode(frames: frames)
+
+        let session = GaitSession(
+            date: .now,
+            duration: 2.0,
+            framesData: framesData
+        )
+        let vm = SessionDetailViewModel(session: session)
+
+        // At 0.5s intervals over 2 seconds, expect ~4-5 points (not all 60)
+        #expect(vm.trunkLeanSeries.count >= 3)
+        #expect(vm.trunkLeanSeries.count <= 6)
+    }
+
+    @Test func footStatsAndSymmetry() async throws {
+        let steps = [
+            StepEvent(timestamp: 0.5, foot: .left, positionX: 0, positionZ: 0, strideLengthM: 0.70),
+            StepEvent(timestamp: 1.0, foot: .right, positionX: 0.3, positionZ: 0.5, strideLengthM: 0.72),
+            StepEvent(timestamp: 1.5, foot: .left, positionX: 0.6, positionZ: 1.0, strideLengthM: 0.68),
+            StepEvent(timestamp: 2.0, foot: .right, positionX: 0.9, positionZ: 1.5, strideLengthM: 0.74),
+        ]
+        let stepData = GaitSession.encode(stepEvents: steps)
+
+        // Need at least one frame to trigger decode
+        let frames = [
+            BodyFrame(
+                timestamp: 0, joints: [:],
+                trunkLeanDeg: 3, lateralLeanDeg: 1,
+                cadenceSPM: 110, avgStrideLengthM: 0.7
+            )
+        ]
+        let framesData = GaitSession.encode(frames: frames)
+
+        let session = GaitSession(
+            date: .now,
+            duration: 2.0,
+            framesData: framesData,
+            stepEventsData: stepData
+        )
+        let vm = SessionDetailViewModel(session: session)
+
+        #expect(vm.leftFootStats != nil)
+        #expect(vm.rightFootStats != nil)
+        #expect(vm.leftFootStats!.count == 2)
+        #expect(vm.rightFootStats!.count == 2)
+
+        // Symmetry: avg left = 0.69, avg right = 0.73 → ratio ≈ 0.945
+        #expect(vm.symmetryRatio != nil)
+        #expect(vm.symmetryRatio! > 0.9)
+        #expect(vm.symmetryRatio! <= 1.0)
+    }
+}
+
+// MARK: - Formatters Tests
+
+struct FormattersTests {
+
+    @Test func timeIntervalMMSS() async throws {
+        let t: TimeInterval = 125
+        #expect(t.mmss == "2:05")
+    }
+
+    @Test func timeIntervalLongForm() async throws {
+        let short: TimeInterval = 300
+        #expect(short.longForm == "5 min")
+
+        let long: TimeInterval = 3900
+        #expect(long.longForm == "1h 5m")
+    }
+
+    @Test func doubleFormatters() async throws {
+        let angle = 12.345
+        #expect(angle.degreesString == "12.3°")
+
+        let pct = 85.7
+        #expect(pct.percentString == "86%")
+
+        let dist = 0.723
+        #expect(dist.metersString == "0.72 m")
+    }
+}
+
+// MARK: - SIMDExtensions Tests
+
+struct SIMDExtensionTests {
+
+    @Test func xzDistance() async throws {
+        let a = SIMD3<Float>(1, 5, 0)
+        let b = SIMD3<Float>(4, 10, 4) // y is ignored
+        let dist = a.xzDistance(to: b)
+        #expect(abs(dist - 5.0) < 0.01) // sqrt(9 + 16) = 5
+    }
+
+    @Test func angleFromVertical() async throws {
+        let up = SIMD3<Float>(0, 1, 0)
+        #expect(up.angleFromVerticalDeg < 0.1)
+
+        let tilted = SIMD3<Float>(0, 1, 0.268) // ~15° from vertical
+        #expect(abs(tilted.angleFromVerticalDeg - 15.0) < 1.5)
+    }
+}

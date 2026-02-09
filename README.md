@@ -37,7 +37,6 @@ Real-time posture and gait analytics using ARKit body tracking, LiDAR, and CoreM
 ```
 Andernet Posture/
 ├── Andernet_PostureApp.swift    # App entry point, SwiftData container
-├── ContentView.swift            # Root view (routes to MainTabView)
 ├── BodyARView.swift             # ARView wrapper + skeleton overlay
 ├── PostureGaitCaptureView.swift # Capture session UI
 ├── GaitSession.swift            # SwiftData @Model for session persistence

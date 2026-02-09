@@ -9,7 +9,7 @@ import Foundation
 import CoreMotion
 
 /// A snapshot of device motion data from CoreMotion.
-struct MotionFrame: Sendable {
+struct MotionFrame: Codable, Sendable {
     let timestamp: TimeInterval
     /// Device attitude (roll, pitch, yaw) in radians.
     let roll: Double
