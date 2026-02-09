@@ -14,6 +14,10 @@ import Foundation
 struct AbnormalFinding: Identifiable, Sendable {
     let id = UUID()
     let metric: String
+    /// Plain-English name for people unfamiliar with clinical terms.
+    var plainName: String = ""
+    /// What this metric means in everyday language.
+    var whatItMeans: String = ""
     let value: String
     let normalRange: String
     let severity: ClinicalSeverity
@@ -71,6 +75,14 @@ enum SessionAnalysisEngine {
         evaluateGait(s, findings: &findings, normal: &normalCount, total: &totalEvaluated)
         evaluateBalance(s, findings: &findings, normal: &normalCount, total: &totalEvaluated)
         evaluateRisk(s, findings: &findings, normal: &normalCount, total: &totalEvaluated)
+
+        // Auto-populate plain-English names and explanations from the glossary.
+        for i in findings.indices {
+            if let entry = ClinicalGlossary.entry(for: findings[i].metric) {
+                findings[i].plainName = entry.plainName
+                findings[i].whatItMeans = entry.explanation
+            }
+        }
 
         let sortedFindings = findings.sorted {
             $0.sortRank != $1.sortRank ? $0.sortRank > $1.sortRank : $0.metric < $1.metric

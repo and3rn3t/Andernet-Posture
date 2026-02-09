@@ -130,9 +130,18 @@ struct SessionAnalysisSection: View {
             } label: {
                 HStack(alignment: .center) {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(finding.metric)
-                            .font(.subheadline.weight(.medium))
-                            .foregroundStyle(.primary)
+                        if !finding.plainName.isEmpty {
+                            Text(finding.plainName)
+                                .font(.subheadline.weight(.medium))
+                                .foregroundStyle(.primary)
+                            Text(finding.metric)
+                                .font(.caption2)
+                                .foregroundStyle(.tertiary)
+                        } else {
+                            Text(finding.metric)
+                                .font(.subheadline.weight(.medium))
+                                .foregroundStyle(.primary)
+                        }
 
                         Text("Normal: \(finding.normalRange)")
                             .font(.caption2)
@@ -159,6 +168,20 @@ struct SessionAnalysisSection: View {
             // Expanded detail
             if expandedFindingID == finding.id {
                 VStack(alignment: .leading, spacing: AppSpacing.sm) {
+                    // Plain-English explanation
+                    if !finding.whatItMeans.isEmpty {
+                        HStack(alignment: .top, spacing: 6) {
+                            Image(systemName: "text.quote")
+                                .font(.caption)
+                                .foregroundStyle(.blue)
+                            Text(finding.whatItMeans)
+                                .font(.caption)
+                                .foregroundStyle(.primary)
+                        }
+                        .padding(AppSpacing.sm)
+                        .background(.blue.opacity(0.06), in: RoundedRectangle(cornerRadius: AppRadius.small))
+                    }
+
                     // Likely causes
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Likely Causes")
@@ -211,7 +234,10 @@ struct SessionAnalysisSection: View {
         }
         .padding(.vertical, AppSpacing.xs)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(finding.metric), \(finding.value), \(finding.severity.rawValue) severity")
+        .accessibilityLabel(
+            "\(finding.plainName.isEmpty ? finding.metric : finding.plainName), "
+            + "\(finding.value), \(finding.severity.rawValue) severity"
+        )
         .accessibilityHint("Tap to \(expandedFindingID == finding.id ? "collapse" : "expand") details")
     }
 

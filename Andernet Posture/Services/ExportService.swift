@@ -462,7 +462,8 @@ private extension ExportService {
         label: String,
         value: String,
         y: CGFloat,
-        severity: ClinicalSeverity? = nil
+        severity: ClinicalSeverity? = nil,
+        explanation: String? = nil
     ) -> CGFloat {
         let labelAttr: [NSAttributedString.Key: Any] = [
             .font: PDF.bodyFont, .foregroundColor: UIColor.darkGray
@@ -479,13 +480,32 @@ private extension ExportService {
             color.setFill()
             UIBezierPath(ovalIn: dot).fill()
         }
-        return y + 16
+
+        var nextY = y + 16
+        if let explanation = explanation {
+            let explAttr: [NSAttributedString.Key: Any] = [
+                .font: PDF.smallFont, .foregroundColor: UIColor.gray
+            ]
+            let explRect = CGRect(
+                x: PDF.margin + 10, y: nextY,
+                width: PDF.contentWidth - 20, height: 30
+            )
+            explanation.draw(in: explRect, withAttributes: explAttr)
+            let explSize = (explanation as NSString).boundingRect(
+                with: CGSize(width: PDF.contentWidth - 20, height: .greatestFiniteMagnitude),
+                options: [.usesLineFragmentOrigin],
+                attributes: explAttr,
+                context: nil
+            )
+            nextY += max(explSize.height + 4, 12)
+        }
+        return nextY
     }
 
     @MainActor
     static func drawSection(
         title: String,
-        items: [(String, String, ClinicalSeverity?)],
+        items: [(String, String, ClinicalSeverity?, String?)],
         startY: CGFloat,
         in ctx: UIGraphicsPDFRendererContext
     ) -> CGFloat {
@@ -499,8 +519,8 @@ private extension ExportService {
         )
         y += 20
 
-        for (label, value, sev) in items {
-            y = drawMetricRow(label: label, value: value, y: y, severity: sev)
+        for (label, value, sev, explanation) in items {
+            y = drawMetricRow(label: label, value: value, y: y, severity: sev, explanation: explanation)
         }
         y += 8
         return y
@@ -652,8 +672,8 @@ private extension ExportService {
             y += 8
 
             for finding in analysis.findings {
-                // Check space for finding (metric row + causes + recommendation ≈ 80-100pt)
-                if y + 90 > PDF.footerY - 20 {
+                // Check space for finding (metric row + explanation + causes + recommendation ≈ 110-140pt)
+                if y + 120 > PDF.footerY - 20 {
                     ctx.beginPage()
                     y = PDF.margin
                 }
@@ -664,7 +684,9 @@ private extension ExportService {
                 sevColor.setFill()
                 UIBezierPath(ovalIn: dot).fill()
 
-                finding.metric.draw(
+                // Show plain name as primary label when available
+                let displayName = finding.plainName.isEmpty ? finding.metric : finding.plainName
+                displayName.draw(
                     at: CGPoint(x: PDF.margin + 24, y: y),
                     withAttributes: [.font: PDF.bodyFont.withTraits(.traitBold), .foregroundColor: UIColor.black]
                 )
@@ -679,12 +701,42 @@ private extension ExportService {
                 )
                 y += 14
 
+                // Clinical term subtitle (if we showed the plain name above)
+                if !finding.plainName.isEmpty {
+                    finding.metric.draw(
+                        at: CGPoint(x: PDF.margin + 24, y: y),
+                        withAttributes: [.font: PDF.smallFont, .foregroundColor: UIColor.lightGray]
+                    )
+                    y += 12
+                }
+
                 // Normal range
                 "Normal: \(finding.normalRange)".draw(
                     at: CGPoint(x: PDF.margin + 24, y: y),
                     withAttributes: [.font: PDF.smallFont, .foregroundColor: UIColor.gray]
                 )
                 y += 12
+
+                // What it means (plain-English explanation)
+                if !finding.whatItMeans.isEmpty {
+                    let meansText = finding.whatItMeans
+                    let meansRect = CGRect(
+                        x: PDF.margin + 24, y: y,
+                        width: PDF.contentWidth - 34, height: 40
+                    )
+                    let meansAttr: [NSAttributedString.Key: Any] = [
+                        .font: UIFont.italicSystemFont(ofSize: 8),
+                        .foregroundColor: UIColor(red: 0.2, green: 0.3, blue: 0.5, alpha: 1)
+                    ]
+                    meansText.draw(in: meansRect, withAttributes: meansAttr)
+                    let meansSize = (meansText as NSString).boundingRect(
+                        with: CGSize(width: PDF.contentWidth - 34, height: .greatestFiniteMagnitude),
+                        options: [.usesLineFragmentOrigin],
+                        attributes: meansAttr,
+                        context: nil
+                    )
+                    y += max(meansSize.height + 4, 12)
+                }
 
                 // Likely causes (compact)
                 let causesText = "Likely causes: " + finding.likelyCauses.prefix(2).joined(separator: "; ")
@@ -744,168 +796,178 @@ private extension ExportService {
 
 private extension ExportService {
 
+    /// Glossary-aware tuple builder for PDF metric rows.
+    static func pdfItem(
+        _ label: String,
+        _ value: String,
+        _ severity: ClinicalSeverity? = nil
+    ) -> (String, String, ClinicalSeverity?, String?) {
+        let explanation = ClinicalGlossary.entry(for: label)?.explanation
+        return (label, value, severity, explanation)
+    }
+
     static func postureItems(
         _ s: GaitSession
-    ) -> [(String, String, ClinicalSeverity?)] {
-        var items: [(String, String, ClinicalSeverity?)] = []
+    ) -> [(String, String, ClinicalSeverity?, String?)] {
+        var items: [(String, String, ClinicalSeverity?, String?)] = []
         if let v = s.postureScore {
-            items.append(("Posture Score", String(format: "%.0f / 100", v), nil))
+            items.append(pdfItem("Posture Score", String(format: "%.0f / 100", v)))
         }
         if let v = s.averageCVADeg {
-            items.append(("CVA", String(format: "%.1f°", v),
+            items.append(pdfItem("CVA", String(format: "%.1f°", v),
                           PostureThresholds.cvaSeverity(v)))
         }
         if let v = s.averageSVACm {
-            items.append(("SVA", String(format: "%.1f cm", v),
+            items.append(pdfItem("SVA", String(format: "%.1f cm", v),
                           PostureThresholds.svaSeverity(v)))
         }
         if let v = s.averageTrunkLeanDeg {
-            items.append(("Trunk Lean", String(format: "%.1f°", v),
+            items.append(pdfItem("Trunk Lean", String(format: "%.1f°", v),
                           PostureThresholds.trunkForwardSeverity(v)))
         }
         if let v = s.averageLateralLeanDeg {
-            items.append(("Lateral Lean", String(format: "%.1f°", v),
+            items.append(pdfItem("Lateral Lean", String(format: "%.1f°", v),
                           PostureThresholds.lateralLeanSeverity(v)))
         }
         if let v = s.averageThoracicKyphosisDeg {
-            items.append(("Thoracic Kyphosis", String(format: "%.1f°", v),
+            items.append(pdfItem("Thoracic Kyphosis", String(format: "%.1f°", v),
                           PostureThresholds.kyphosisSeverity(v)))
         }
         if let v = s.averageLumbarLordosisDeg {
-            items.append(("Lumbar Lordosis", String(format: "%.1f°", v),
+            items.append(pdfItem("Lumbar Lordosis", String(format: "%.1f°", v),
                           PostureThresholds.lordosisSeverity(v)))
         }
         if let v = s.averageShoulderAsymmetryCm {
-            items.append(("Shoulder Asymmetry", String(format: "%.1f cm", v),
+            items.append(pdfItem("Shoulder Asymmetry", String(format: "%.1f cm", v),
                           PostureThresholds.shoulderSeverity(cm: v)))
         }
         if let v = s.averagePelvicObliquityDeg {
-            items.append(("Pelvic Obliquity", String(format: "%.1f°", v),
+            items.append(pdfItem("Pelvic Obliquity", String(format: "%.1f°", v),
                           PostureThresholds.pelvicSeverity(v)))
         }
         if let v = s.averageCoronalDeviationCm {
-            items.append(("Coronal Deviation", String(format: "%.1f cm", v),
+            items.append(pdfItem("Coronal Deviation", String(format: "%.1f cm", v),
                           PostureThresholds.scoliosisSeverity(cm: v)))
         }
         if let t = s.kendallPosturalType {
-            items.append(("Kendall Type", t, nil))
+            items.append(pdfItem("Kendall Type", t))
         }
         return items
     }
 
     static func gaitItems(
         _ s: GaitSession
-    ) -> [(String, String, ClinicalSeverity?)] {
-        var items: [(String, String, ClinicalSeverity?)] = []
+    ) -> [(String, String, ClinicalSeverity?, String?)] {
+        var items: [(String, String, ClinicalSeverity?, String?)] = []
         if let v = s.averageCadenceSPM {
-            items.append(("Cadence", String(format: "%.0f SPM", v), nil))
+            items.append(pdfItem("Cadence", String(format: "%.0f SPM", v)))
         }
         if let v = s.averageStrideLengthM {
-            items.append(("Stride Length", String(format: "%.2f m", v), nil))
+            items.append(pdfItem("Stride Length", String(format: "%.2f m", v)))
         }
         if let v = s.averageWalkingSpeedMPS {
-            items.append(("Walking Speed", String(format: "%.2f m/s", v),
+            items.append(pdfItem("Walking Speed", String(format: "%.2f m/s", v),
                           GaitThresholds.speedSeverity(v)))
         }
         if let v = s.averageStepWidthCm {
-            items.append(("Step Width", String(format: "%.1f cm", v), nil))
+            items.append(pdfItem("Step Width", String(format: "%.1f cm", v)))
         }
         if let v = s.gaitAsymmetryPercent {
-            items.append(("Gait Asymmetry", String(format: "%.1f%%", v),
+            items.append(pdfItem("Gait Asymmetry", String(format: "%.1f%%", v),
                           GaitThresholds.symmetrySeverity(v)))
         }
         if let v = s.walkRatio {
-            items.append(("Walk Ratio", String(format: "%.3f", v), nil))
+            items.append(pdfItem("Walk Ratio", String(format: "%.3f", v)))
         }
         if let p = s.gaitPatternClassification {
-            items.append(("Gait Pattern", p, nil))
+            items.append(pdfItem("Gait Pattern", p))
         }
         return items
     }
 
     static func romItems(
         _ s: GaitSession
-    ) -> [(String, String, ClinicalSeverity?)] {
-        var items: [(String, String, ClinicalSeverity?)] = []
+    ) -> [(String, String, ClinicalSeverity?, String?)] {
+        var items: [(String, String, ClinicalSeverity?, String?)] = []
         if let v = s.averageHipROMDeg {
-            items.append(("Hip ROM", String(format: "%.1f°", v), nil))
+            items.append(pdfItem("Hip ROM", String(format: "%.1f°", v)))
         }
         if let v = s.averageKneeROMDeg {
-            items.append(("Knee ROM", String(format: "%.1f°", v), nil))
+            items.append(pdfItem("Knee ROM", String(format: "%.1f°", v)))
         }
         return items
     }
 
     static func balanceItems(
         _ s: GaitSession
-    ) -> [(String, String, ClinicalSeverity?)] {
-        var items: [(String, String, ClinicalSeverity?)] = []
+    ) -> [(String, String, ClinicalSeverity?, String?)] {
+        var items: [(String, String, ClinicalSeverity?, String?)] = []
         if let v = s.averageSwayVelocityMMS {
-            items.append(("Sway Velocity", String(format: "%.1f mm/s", v), nil))
+            items.append(pdfItem("Sway Velocity", String(format: "%.1f mm/s", v)))
         }
         if let v = s.swayAreaCm2 {
-            items.append(("Sway Area", String(format: "%.1f cm²", v), nil))
+            items.append(pdfItem("Sway Area", String(format: "%.1f cm²", v)))
         }
         if let v = s.rombergRatio {
-            items.append(("Romberg Ratio", String(format: "%.2f", v), nil))
+            items.append(pdfItem("Romberg Ratio", String(format: "%.2f", v)))
         }
         return items
     }
 
     static func riskItems(
         _ s: GaitSession
-    ) -> [(String, String, ClinicalSeverity?)] {
-        var items: [(String, String, ClinicalSeverity?)] = []
+    ) -> [(String, String, ClinicalSeverity?, String?)] {
+        var items: [(String, String, ClinicalSeverity?, String?)] = []
         if let v = s.fallRiskScore {
             let sev: ClinicalSeverity = v < 30 ? .normal
                 : v < 50 ? .mild
                 : v < 70 ? .moderate
                 : .severe
-            items.append(("Fall Risk", String(format: "%.0f", v), sev))
+            items.append(pdfItem("Fall Risk", String(format: "%.0f", v), sev))
         }
         if let l = s.fallRiskLevel {
-            items.append(("Fall Risk Level", l, nil))
+            items.append(pdfItem("Fall Risk Level", l))
         }
         if let v = s.fatigueIndex {
-            items.append(("Fatigue Index", String(format: "%.2f", v), nil))
+            items.append(pdfItem("Fatigue Index", String(format: "%.2f", v)))
         }
         if let v = s.rebaScore {
             let sev: ClinicalSeverity = v <= 3 ? .normal
                 : v <= 7 ? .mild
                 : v <= 10 ? .moderate
                 : .severe
-            items.append(("REBA Score", "\(v)", sev))
+            items.append(pdfItem("REBA Score", "\(v)", sev))
         }
         if let v = s.sparcScore {
-            items.append(("SPARC Score", String(format: "%.2f", v), nil))
+            items.append(pdfItem("SPARC Score", String(format: "%.2f", v)))
         }
         if let v = s.harmonicRatio {
-            items.append(("Harmonic Ratio", String(format: "%.2f", v), nil))
+            items.append(pdfItem("Harmonic Ratio", String(format: "%.2f", v)))
         }
         if let v = s.frailtyScore {
             let sev: ClinicalSeverity = v == 0 ? .normal
                 : v <= 2 ? .mild
                 : .severe
-            items.append(("Frailty Score", "\(v)", sev))
+            items.append(pdfItem("Frailty Score", "\(v)", sev))
         }
         if let v = s.upperCrossedScore {
-            items.append(("Upper Crossed", String(format: "%.1f", v), nil))
+            items.append(pdfItem("Upper Crossed", String(format: "%.1f", v)))
         }
         if let v = s.lowerCrossedScore {
-            items.append(("Lower Crossed", String(format: "%.1f", v), nil))
+            items.append(pdfItem("Lower Crossed", String(format: "%.1f", v)))
         }
         if let v = s.estimatedMET {
-            items.append(("Estimated MET", String(format: "%.1f", v), nil))
+            items.append(pdfItem("Estimated MET", String(format: "%.1f", v)))
         }
         if let v = s.tugTimeSec {
             let sev: ClinicalSeverity = v < 10 ? .normal
                 : v < 14 ? .mild
                 : v < 20 ? .moderate
                 : .severe
-            items.append(("TUG Time", String(format: "%.1f s", v), sev))
+            items.append(pdfItem("TUG Time", String(format: "%.1f s", v), sev))
         }
         if let v = s.sixMinuteWalkDistanceM {
-            items.append(("6MWD", String(format: "%.0f m", v), nil))
+            items.append(pdfItem("6MWD", String(format: "%.0f m", v)))
         }
         return items
     }

@@ -127,15 +127,30 @@ struct SessionDetailView: View {
     private func clinicalSection(title: String, icon: String, items: [ClinicalMetricItem]) -> some View {
         SectionCard(title: title, icon: icon) {
             ForEach(items) { item in
-                HStack {
+                HStack(alignment: .top) {
                     VStack(alignment: .leading, spacing: AppSpacing.xs) {
-                        Text(item.label)
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                        if let plain = item.plainName {
+                            Text(plain)
+                                .font(.subheadline)
+                                .foregroundStyle(.primary)
+                            Text(item.label)
+                                .font(.caption2)
+                                .foregroundStyle(.tertiary)
+                        } else {
+                            Text(item.label)
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
                         if let detail = item.detail {
                             Text(detail)
                                 .font(.caption2)
                                 .foregroundStyle(.tertiary)
+                        }
+                        if let explanation = item.explanation {
+                            Text(explanation)
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
                         }
                     }
 
@@ -151,7 +166,7 @@ struct SessionDetailView: View {
                 }
                 .padding(.vertical, AppSpacing.xs)
                 .clinicalMetricAccessibility(
-                    label: item.label,
+                    label: item.plainName ?? item.label,
                     value: item.value,
                     severity: item.severity
                 )
