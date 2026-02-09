@@ -67,6 +67,9 @@ final class SessionDetailViewModel {
     var clinicalTestMetrics: [ClinicalMetricItem] = []
     var painAlerts: [PainRiskAlert] = []
 
+    // Overall session analysis
+    var sessionAnalysis: SessionAnalysis?
+
     init(session: GaitSession) {
         self.session = session
         decode()
@@ -81,6 +84,7 @@ final class SessionDetailViewModel {
         guard !frames.isEmpty else {
             buildSummary()
             buildClinicalSections()
+            sessionAnalysis = SessionAnalysisEngine.analyze(session: session)
             return
         }
         let startTime = frames.first!.timestamp
@@ -147,6 +151,7 @@ final class SessionDetailViewModel {
 
         buildSummary()
         buildClinicalSections()
+        sessionAnalysis = SessionAnalysisEngine.analyze(session: session)
     }
 
     private func buildSummary() {

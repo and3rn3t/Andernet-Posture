@@ -202,7 +202,9 @@ final class DefaultInsightsEngine: InsightsEngine {
         return Insight(
             icon: improved ? "arrow.up.right.circle.fill" : "arrow.down.right.circle.fill",
             title: improved ? "Posture Improving" : "Posture Declining",
-            body: "Your posture score \(improved ? "improved" : "declined") \(pct)% this week compared to the previous week.\(improved ? "" : " Try the exercises below to help improve your alignment.")",
+            body: "Your posture score \(improved ? "improved" : "declined") "
+                + "\(pct)% this week compared to the previous week."
+                + "\(improved ? "" : " Try the exercises below to help improve your alignment.")",
             severity: improved ? .normal : .moderate,
             category: .posture,
             exercises: improved ? [] : ExerciseLibrary.exercises(for: "postureDecline")
@@ -218,7 +220,11 @@ final class DefaultInsightsEngine: InsightsEngine {
             return Insight(
                 icon: "exclamationmark.triangle.fill",
                 title: "Low Walking Speed",
-                body: String(format: "Your walking speed of %.2f m/s is below the 0.8 m/s clinical threshold. Declining gait speed may indicate sarcopenia risk. See recommended exercises to help improve.", speed),
+                body: String(
+                    format: "Your walking speed of %.2f m/s is below the 0.8 m/s clinical threshold. "
+                        + "Declining gait speed may indicate sarcopenia risk. "
+                        + "See recommended exercises to help improve.",
+                    speed),
                 severity: .severe,
                 category: .gait,
                 exercises: ExerciseLibrary.exercises(for: "lowWalkingSpeed")
@@ -236,7 +242,11 @@ final class DefaultInsightsEngine: InsightsEngine {
                 return Insight(
                     icon: "arrow.down.circle.fill",
                     title: "Walking Speed Declining",
-                    body: String(format: "Your walking speed is trending downward (%.2f → %.2f m/s). Consider discussing with your healthcare provider and try the recommended exercises.", firstAvg, secondAvg),
+                    body: String(
+                        format: "Your walking speed is trending downward (%.2f → %.2f m/s). "
+                            + "Consider discussing with your healthcare provider "
+                            + "and try the recommended exercises.",
+                        firstAvg, secondAvg),
                     severity: .moderate,
                     category: .gait,
                     exercises: ExerciseLibrary.exercises(for: "lowWalkingSpeed")
@@ -262,7 +272,11 @@ final class DefaultInsightsEngine: InsightsEngine {
             return Insight(
                 icon: "person.fill.questionmark",
                 title: "Forward Head Posture Increasing",
-                body: String(format: "Your craniovertebral angle decreased by %.0f° over the last 5 sessions, indicating increasing forward head posture. Targeted exercises can help correct this.", change),
+                body: String(
+                    format: "Your craniovertebral angle decreased by %.0f° over the last 5 sessions, "
+                        + "indicating increasing forward head posture. "
+                        + "Targeted exercises can help correct this.",
+                    change),
                 severity: .moderate,
                 category: .posture,
                 exercises: ExerciseLibrary.exercises(for: "forwardHeadPosture")
@@ -297,7 +311,9 @@ final class DefaultInsightsEngine: InsightsEngine {
             return Insight(
                 icon: "exclamationmark.octagon.fill",
                 title: "Fall Risk Escalated",
-                body: "Your fall risk increased from \(previousLevel) to \(currentLevel). Consider consulting your healthcare provider and reviewing home safety measures. Balance exercises are strongly recommended.",
+                body: "Your fall risk increased from \(previousLevel) to \(currentLevel). "
+                    + "Consider consulting your healthcare provider and reviewing home safety measures. "
+                    + "Balance exercises are strongly recommended.",
                 severity: .severe,
                 category: .risk,
                 exercises: ExerciseLibrary.exercises(for: "fallRisk")
@@ -384,7 +400,11 @@ final class DefaultInsightsEngine: InsightsEngine {
             return Insight(
                 icon: "figure.walk.motion",
                 title: "Stride Asymmetry Detected",
-                body: String(format: "Left-right stride asymmetry of %.0f%% detected. Values above 10%% may indicate compensatory gait patterns. Try the symmetry exercises below to help balance your gait.", asymmetry),
+                body: String(
+                    format: "Left-right stride asymmetry of %.0f%% detected. "
+                        + "Values above 10%% may indicate compensatory gait patterns. "
+                        + "Try the symmetry exercises below to help balance your gait.",
+                    asymmetry),
                 severity: severity,
                 category: .gait,
                 exercises: ExerciseLibrary.exercises(for: "gaitAsymmetry")
@@ -485,7 +505,12 @@ final class DefaultInsightsEngine: InsightsEngine {
             return Insight(
                 icon: "arrow.up.and.down.text.horizontal",
                 title: "Significant Sagittal Imbalance",
-                body: String(format: "Your sagittal vertical axis of %.1f cm is well above the 5 cm threshold. This level of forward shift is associated with disability and increased energy expenditure. Exercises to strengthen your back extensors and stretch hip flexors can help.", absSVA),
+                body: String(
+                    format: "Your sagittal vertical axis of %.1f cm is well above the 5 cm threshold. "
+                        + "This level of forward shift is associated with disability "
+                        + "and increased energy expenditure. Exercises to strengthen "
+                        + "your back extensors and stretch hip flexors can help.",
+                    absSVA),
                 severity: .severe,
                 category: .posture,
                 exercises: ExerciseLibrary.exercises(for: "sagittalImbalance")
@@ -513,7 +538,12 @@ final class DefaultInsightsEngine: InsightsEngine {
             return Insight(
                 icon: "figure.stand",
                 title: "Increased Thoracic Kyphosis",
-                body: String(format: "Your thoracic curvature of %.0f° exceeds the normal range (20–45°). Excessive rounding of the upper back can contribute to shoulder pain and breathing restrictions. Try the exercises below to improve thoracic extension.", kyphosis),
+                body: String(
+                    format: "Your thoracic curvature of %.0f° exceeds the normal range (20–45°). "
+                        + "Excessive rounding of the upper back can contribute to shoulder pain "
+                        + "and breathing restrictions. "
+                        + "Try the exercises below to improve thoracic extension.",
+                    kyphosis),
                 severity: severity,
                 category: .posture,
                 exercises: ExerciseLibrary.exercises(for: "thoracicKyphosis")
@@ -522,7 +552,11 @@ final class DefaultInsightsEngine: InsightsEngine {
             return Insight(
                 icon: "figure.stand",
                 title: "Reduced Thoracic Kyphosis",
-                body: String(format: "Your thoracic curvature of %.0f° is below the normal range (20–45°), indicating a flattened upper back. Spinal mobility exercises can help restore natural curvature.", kyphosis),
+                body: String(
+                    format: "Your thoracic curvature of %.0f° is below the normal range (20–45°), "
+                        + "indicating a flattened upper back. "
+                        + "Spinal mobility exercises can help restore natural curvature.",
+                    kyphosis),
                 severity: .mild,
                 category: .posture,
                 exercises: ExerciseLibrary.exercises(for: "postureDecline")
@@ -542,7 +576,11 @@ final class DefaultInsightsEngine: InsightsEngine {
             return Insight(
                 icon: "arrow.left.arrow.right",
                 title: "Shoulder Level Imbalance",
-                body: String(format: "Your shoulders differ in height by %.1f cm (normal < 1.5 cm). Uneven shoulders may indicate muscle imbalances or habitual patterns. Corrective exercises can help restore symmetry.", shoulderCm),
+                body: String(
+                    format: "Your shoulders differ in height by %.1f cm (normal < 1.5 cm). "
+                        + "Uneven shoulders may indicate muscle imbalances or habitual patterns. "
+                        + "Corrective exercises can help restore symmetry.",
+                    shoulderCm),
                 severity: severity,
                 category: .posture,
                 exercises: ExerciseLibrary.exercises(for: "shoulderAsymmetry")
@@ -555,7 +593,11 @@ final class DefaultInsightsEngine: InsightsEngine {
             return Insight(
                 icon: "arrow.left.arrow.right",
                 title: "Pelvic Obliquity Detected",
-                body: String(format: "Your pelvis tilts %.1f° from level (normal < 1°). Pelvic imbalance can affect gait symmetry and contribute to lower back pain. Hip stabilization exercises are recommended.", abs(pelvicDeg)),
+                body: String(
+                    format: "Your pelvis tilts %.1f° from level (normal < 1°). "
+                        + "Pelvic imbalance can affect gait symmetry and contribute to lower back pain. "
+                        + "Hip stabilization exercises are recommended.",
+                    abs(pelvicDeg)),
                 severity: severity,
                 category: .posture,
                 exercises: ExerciseLibrary.exercises(for: "pelvicObliquity")
@@ -576,7 +618,11 @@ final class DefaultInsightsEngine: InsightsEngine {
             return Insight(
                 icon: "figure.stand",
                 title: "Excessive Trunk Lean",
-                body: String(format: "Your average trunk lean of %.0f° exceeds the normal threshold (< 5°). Forward trunk lean increases spinal loading and fall risk. Core strengthening and hip flexibility exercises can help.", absLean),
+                body: String(
+                    format: "Your average trunk lean of %.0f° exceeds the normal threshold (< 5°). "
+                        + "Forward trunk lean increases spinal loading and fall risk. "
+                        + "Core strengthening and hip flexibility exercises can help.",
+                    absLean),
                 severity: severity,
                 category: .posture,
                 exercises: ExerciseLibrary.exercises(for: "sagittalImbalance")

@@ -339,15 +339,24 @@ extension ExportService {
     static func generatePDFReport(for session: GaitSession) -> Data {
         let pageRect = CGRect(x: 0, y: 0, width: PDF.pageWidth, height: PDF.pageHeight)
         let renderer = UIGraphicsPDFRenderer(bounds: pageRect)
+        let analysis = SessionAnalysisEngine.analyze(session: session)
 
         let data = renderer.pdfData { context in
             // Page 1: Header + Summary
             context.beginPage()
             var y = drawHeader(session: session, in: context)
             y = drawSummaryTable(session: session, startY: y, in: context)
+
+            // Clinical Analysis section (right after summary on page 1, or new page if needed)
+            if analysis.totalEvaluated > 0 {
+                let estimatedAnalysisHeight = CGFloat(60 + analysis.findings.count * 60)
+                y = ensureSpace(y: y, needed: min(estimatedAnalysisHeight, 300), context: context, page: 1)
+                y = drawAnalysisSection(analysis: analysis, startY: y, in: context)
+            }
+
             drawFooter(page: 1, in: context)
 
-            // Page 2: Clinical detail
+            // Page 2+: Clinical detail
             context.beginPage()
             var y2 = PDF.margin
             y2 = drawSection(
@@ -584,6 +593,143 @@ private extension ExportService {
         return y
     }
 
+    // MARK: - Clinical Analysis Section
+
+    @MainActor
+    static func drawAnalysisSection(
+        analysis: SessionAnalysis,
+        startY: CGFloat,
+        in ctx: UIGraphicsPDFRendererContext
+    ) -> CGFloat {
+        var y = startY + 4
+
+        // Section title
+        let titleColor = UIColor(red: 0.6, green: 0.2, blue: 0.6, alpha: 1)
+        "Clinical Analysis".draw(
+            at: CGPoint(x: PDF.margin, y: y),
+            withAttributes: [.font: PDF.headingFont, .foregroundColor: titleColor]
+        )
+        y += 20
+
+        // Overall assessment
+        let assessmentRect = CGRect(
+            x: PDF.margin + 10, y: y,
+            width: PDF.contentWidth - 20, height: 60
+        )
+        let assessmentAttr: [NSAttributedString.Key: Any] = [
+            .font: PDF.bodyFont,
+            .foregroundColor: UIColor.darkGray
+        ]
+        analysis.overallAssessment.draw(in: assessmentRect, withAttributes: assessmentAttr)
+        let assessmentSize = (analysis.overallAssessment as NSString).boundingRect(
+            with: CGSize(width: PDF.contentWidth - 20, height: .greatestFiniteMagnitude),
+            options: [.usesLineFragmentOrigin, .usesFontLeading],
+            attributes: assessmentAttr,
+            context: nil
+        )
+        y += max(assessmentSize.height + 8, 20)
+
+        // Stats line
+        let statsLine = "\(analysis.totalEvaluated) metrics evaluated  •  " +
+            "\(analysis.normalCount) normal  •  " +
+            "\(analysis.abnormalCount) abnormal  •  " +
+            "\(analysis.normalPercentage)% in range"
+        statsLine.draw(
+            at: CGPoint(x: PDF.margin + 10, y: y),
+            withAttributes: [.font: PDF.smallFont, .foregroundColor: UIColor.gray]
+        )
+        y += 16
+
+        // Findings
+        if !analysis.findings.isEmpty {
+            // Thin divider
+            let divPath = UIBezierPath()
+            divPath.move(to: CGPoint(x: PDF.margin + 10, y: y))
+            divPath.addLine(to: CGPoint(x: PDF.pageWidth - PDF.margin - 10, y: y))
+            UIColor.lightGray.setStroke()
+            divPath.lineWidth = 0.5
+            divPath.stroke()
+            y += 8
+
+            for finding in analysis.findings {
+                // Check space for finding (metric row + causes + recommendation ≈ 80-100pt)
+                if y + 90 > PDF.footerY - 20 {
+                    ctx.beginPage()
+                    y = PDF.margin
+                }
+
+                // Metric row with severity dot
+                let sevColor = severityUIColor(finding.severity)
+                let dot = CGRect(x: PDF.margin + 10, y: y + 2, width: 8, height: 8)
+                sevColor.setFill()
+                UIBezierPath(ovalIn: dot).fill()
+
+                finding.metric.draw(
+                    at: CGPoint(x: PDF.margin + 24, y: y),
+                    withAttributes: [.font: PDF.bodyFont.withTraits(.traitBold), .foregroundColor: UIColor.black]
+                )
+
+                let valueStr = "\(finding.value)  (\(finding.severity.rawValue.capitalized))"
+                let valueWidth = (valueStr as NSString).size(
+                    withAttributes: [.font: PDF.bodyFont]
+                ).width
+                valueStr.draw(
+                    at: CGPoint(x: PDF.pageWidth - PDF.margin - valueWidth, y: y),
+                    withAttributes: [.font: PDF.bodyFont, .foregroundColor: sevColor]
+                )
+                y += 14
+
+                // Normal range
+                "Normal: \(finding.normalRange)".draw(
+                    at: CGPoint(x: PDF.margin + 24, y: y),
+                    withAttributes: [.font: PDF.smallFont, .foregroundColor: UIColor.gray]
+                )
+                y += 12
+
+                // Likely causes (compact)
+                let causesText = "Likely causes: " + finding.likelyCauses.prefix(2).joined(separator: "; ")
+                let causesRect = CGRect(
+                    x: PDF.margin + 24, y: y,
+                    width: PDF.contentWidth - 34, height: 30
+                )
+                let causesAttr: [NSAttributedString.Key: Any] = [
+                    .font: PDF.smallFont,
+                    .foregroundColor: UIColor.darkGray
+                ]
+                causesText.draw(in: causesRect, withAttributes: causesAttr)
+                let causesSize = (causesText as NSString).boundingRect(
+                    with: CGSize(width: PDF.contentWidth - 34, height: .greatestFiniteMagnitude),
+                    options: [.usesLineFragmentOrigin],
+                    attributes: causesAttr,
+                    context: nil
+                )
+                y += max(causesSize.height + 4, 14)
+
+                // Recommendation
+                let recText = "→ \(finding.recommendation)"
+                let recRect = CGRect(
+                    x: PDF.margin + 24, y: y,
+                    width: PDF.contentWidth - 34, height: 30
+                )
+                let recAttr: [NSAttributedString.Key: Any] = [
+                    .font: UIFont.italicSystemFont(ofSize: 8),
+                    .foregroundColor: UIColor(red: 0.2, green: 0.4, blue: 0.2, alpha: 1)
+                ]
+                recText.draw(in: recRect, withAttributes: recAttr)
+                let recSize = (recText as NSString).boundingRect(
+                    with: CGSize(width: PDF.contentWidth - 34, height: .greatestFiniteMagnitude),
+                    options: [.usesLineFragmentOrigin],
+                    attributes: recAttr,
+                    context: nil
+                )
+                y += max(recSize.height + 6, 14)
+            }
+        }
+
+        y += 8
+        return y
+    }
+
     static func severityUIColor(_ severity: ClinicalSeverity) -> UIColor {
         switch severity {
         case .normal:   return .systemGreen
@@ -762,5 +908,16 @@ private extension ExportService {
             items.append(("6MWD", String(format: "%.0f m", v), nil))
         }
         return items
+    }
+}
+
+// MARK: - UIFont Trait Helper
+
+private extension UIFont {
+    func withTraits(_ traits: UIFontDescriptor.SymbolicTraits) -> UIFont {
+        guard let descriptor = fontDescriptor.withSymbolicTraits(
+            fontDescriptor.symbolicTraits.union(traits)
+        ) else { return self }
+        return UIFont(descriptor: descriptor, size: pointSize)
     }
 }

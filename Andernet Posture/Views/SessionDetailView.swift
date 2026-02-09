@@ -34,6 +34,11 @@ struct SessionDetailView: View {
                 // MARK: - Summary
                 summarySection
 
+                // MARK: - Overall Clinical Analysis
+                if let analysis = viewModel.sessionAnalysis, analysis.totalEvaluated > 0 {
+                    SessionAnalysisSection(analysis: analysis)
+                }
+
                 // MARK: - Posture Analytics
                 if !viewModel.postureMetrics.isEmpty {
                     clinicalSection(title: "Posture Analytics", icon: "figure.stand", items: viewModel.postureMetrics)
