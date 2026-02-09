@@ -32,14 +32,16 @@ struct SessionPlaybackView: View {
     }
 
     var body: some View {
-        ScrollView {
+        ScrollView(.vertical) {
             VStack(spacing: AppSpacing.xl) {
                 metricsPanel
                 transportControls
                 miniChartSection
             }
             .padding(AppSpacing.lg)
+            .frame(maxWidth: .infinity)
         }
+        .scrollBounceBehavior(.basedOnSize)
         .navigationTitle("Playback")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear { loadFrames() }

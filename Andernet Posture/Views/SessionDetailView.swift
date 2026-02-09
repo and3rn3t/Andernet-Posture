@@ -20,7 +20,7 @@ struct SessionDetailView: View {
     }
 
     var body: some View {
-        ScrollView {
+        ScrollView(.vertical) {
             VStack(spacing: AppSpacing.xl) {
                 // MARK: - Hero Score Ring
                 if let score = viewModel.session.postureScore {
@@ -84,7 +84,9 @@ struct SessionDetailView: View {
                 }
             }
             .padding(AppSpacing.lg)
+            .frame(maxWidth: .infinity)
         }
+        .scrollBounceBehavior(.basedOnSize)
         .navigationTitle(viewModel.session.date.formatted(date: .abbreviated, time: .shortened))
         .navigationBarTitleDisplayMode(.large)
         .reduceMotionAware()
