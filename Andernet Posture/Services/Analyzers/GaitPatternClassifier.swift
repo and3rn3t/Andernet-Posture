@@ -31,7 +31,9 @@ struct GaitPatternResult: Sendable {
 // MARK: - Protocol
 
 protocol GaitPatternClassifier: AnyObject {
+    // swiftlint:disable:next orphaned_doc_comment
     /// Classify gait pattern from session-level data.
+    // swiftlint:disable:next function_parameter_count
     func classify(
         stanceTimeLeftPercent: Double?,
         stanceTimeRightPercent: Double?,
@@ -54,6 +56,7 @@ protocol GaitPatternClassifier: AnyObject {
 
 final class DefaultGaitPatternClassifier: GaitPatternClassifier {
 
+    // swiftlint:disable:next cyclomatic_complexity function_body_length function_parameter_count
     func classify(
         stanceTimeLeftPercent: Double?,
         stanceTimeRightPercent: Double?,

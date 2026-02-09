@@ -71,7 +71,6 @@ extension ProgressMetric {
 
     // MARK: Posture
 
-    // swiftlint:disable function_body_length
     static let posture: [ProgressMetric] = [
         .init(
             id: "postureScore", displayName: "Posture Score",
@@ -138,9 +137,8 @@ extension ProgressMetric {
             unit: "cm", category: .posture,
             icon: "arrow.left.and.right",
             higherIsBetter: false
-        ) { $0.averageCoronalDeviationCm },
+        ) { $0.averageCoronalDeviationCm }
     ]
-    // swiftlint:enable function_body_length
 
     // MARK: Gait
 
@@ -192,7 +190,7 @@ extension ProgressMetric {
             displayName: "Stride Variability",
             unit: "CV", category: .gait, icon: "waveform.path",
             higherIsBetter: false
-        ) { $0.strideTimeVariabilityCV },
+        ) { $0.strideTimeVariabilityCV }
     ]
 
     // MARK: ROM
@@ -220,7 +218,7 @@ extension ProgressMetric {
             unit: "%", category: .rom,
             icon: "arrow.left.arrow.right",
             higherIsBetter: false
-        ) { $0.armSwingAsymmetryPercent },
+        ) { $0.armSwingAsymmetryPercent }
     ]
 
     // MARK: Balance
@@ -236,7 +234,7 @@ extension ProgressMetric {
             unit: "cm²", category: .balance,
             icon: "circle.dashed",
             higherIsBetter: false
-        ) { $0.swayAreaCm2 },
+        ) { $0.swayAreaCm2 }
     ]
 
     // MARK: Risk
@@ -271,7 +269,7 @@ extension ProgressMetric {
             displayName: "Posture Variability",
             unit: "SD", category: .risk, icon: "waveform.path",
             higherIsBetter: false
-        ) { $0.postureVariabilitySD },
+        ) { $0.postureVariabilitySD }
     ]
 
     // MARK: Clinical
@@ -303,7 +301,7 @@ extension ProgressMetric {
             id: "estimatedMET", displayName: "Estimated MET",
             unit: "", category: .clinical, icon: "flame.fill",
             higherIsBetter: true
-        ) { $0.estimatedMET },
+        ) { $0.estimatedMET }
     ]
 
     // MARK: Ergonomic
@@ -314,7 +312,7 @@ extension ProgressMetric {
             unit: "", category: .ergonomic,
             icon: "desktopcomputer",
             higherIsBetter: false
-        ) { s in s.rebaScore.map(Double.init) },
+        ) { s in s.rebaScore.map(Double.init) }
     ]
 
     // MARK: Smoothness
@@ -331,7 +329,7 @@ extension ProgressMetric {
             unit: "", category: .smoothness,
             icon: "waveform.path.ecg.rectangle",
             higherIsBetter: true
-        ) { $0.harmonicRatio },
+        ) { $0.harmonicRatio }
     ]
 
     // MARK: Frailty
@@ -343,6 +341,6 @@ extension ProgressMetric {
             unit: "", category: .frailty,
             icon: "heart.text.clipboard",
             higherIsBetter: false
-        ) { s in s.frailtyScore.map(Double.init) },
+        ) { s in s.frailtyScore.map(Double.init) }
     ]
 }

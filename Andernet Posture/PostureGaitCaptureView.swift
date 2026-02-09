@@ -16,7 +16,7 @@ struct PostureGaitCaptureView: View {
     @State private var showSavedAlert = false
     @AppStorage("skeletonOverlay") private var skeletonOverlay = true
     @AppStorage("samplingRate") private var samplingRate = 60.0
-    @State private var coachingTip: String? = nil
+    @State private var coachingTip: String?
     @State private var showCoachingTip = false
     @State private var captureStarted = false
     @State private var pulseScale: CGFloat = 1.0
@@ -237,7 +237,7 @@ struct PostureGaitCaptureView: View {
                 // Stop
                 Button {
                     viewModel.stopCapture()
-                    if let _ = viewModel.saveSession(context: modelContext) {
+                    if viewModel.saveSession(context: modelContext) != nil {
                         showSavedAlert = true
                     }
                 } label: {
@@ -265,7 +265,7 @@ struct PostureGaitCaptureView: View {
                 // Stop
                 Button {
                     viewModel.stopCapture()
-                    if let _ = viewModel.saveSession(context: modelContext) {
+                    if viewModel.saveSession(context: modelContext) != nil {
                         showSavedAlert = true
                     }
                 } label: {
@@ -311,7 +311,7 @@ struct PostureGaitCaptureView: View {
     }
 
     private func evaluateCoachingTip() {
-        var tip: String? = nil
+        var tip: String?
 
         if !viewModel.isBodyDetected && viewModel.recordingState == .recording {
             tip = "Move back so your full body is visible"

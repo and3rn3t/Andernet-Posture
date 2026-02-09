@@ -154,7 +154,7 @@ final class DefaultCardioEstimator: CardioEstimator {
             }
         }
 
-        let percentPredicted = predicted.map { $0 > 0 ? (distanceM / $0) * 100 : nil } ?? nil
+        let percentPredicted = predicted.flatMap { $0 > 0 ? (distanceM / $0) * 100 : nil }
 
         // Classification
         let classification: String

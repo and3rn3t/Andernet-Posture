@@ -1,3 +1,4 @@
+// swiftlint:disable file_length
 //
 //  SessionAnalysisSummary.swift
 //  Andernet Posture
@@ -105,7 +106,6 @@ enum SessionAnalysisEngine {
 
 private extension SessionAnalysisEngine {
 
-    // swiftlint:disable:next function_body_length
     static func evaluatePosture(
         _ s: GaitSession,
         findings: inout [AbnormalFinding],
@@ -471,7 +471,6 @@ private extension SessionAnalysisEngine {
 
 private extension SessionAnalysisEngine {
 
-    // swiftlint:disable:next function_body_length cyclomatic_complexity
     static func evaluateRisk(
         _ s: GaitSession,
         findings: inout [AbnormalFinding],

@@ -70,6 +70,6 @@ enum JointName: String, Codable, CaseIterable, Sendable {
         (.root, .leftUpLeg), (.leftUpLeg, .leftLeg),
         (.leftLeg, .leftFoot), (.leftFoot, .leftToeEnd),
         (.root, .rightUpLeg), (.rightUpLeg, .rightLeg),
-        (.rightLeg, .rightFoot), (.rightFoot, .rightToeEnd),
+        (.rightLeg, .rightFoot), (.rightFoot, .rightToeEnd)
     ]
 }

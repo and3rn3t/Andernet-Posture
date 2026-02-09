@@ -113,9 +113,9 @@ final class GaitSession {
     // MARK: - Transient Caches
 
     /// Cached decoded frames — not persisted by SwiftData.
-    @Transient private var _cachedFrames: [BodyFrame]? = nil
-    @Transient private var _cachedSteps: [StepEvent]? = nil
-    @Transient private var _cachedMotion: [MotionFrame]? = nil
+    @Transient private var _cachedFrames: [BodyFrame]?
+    @Transient private var _cachedSteps: [StepEvent]?
+    @Transient private var _cachedMotion: [MotionFrame]?
 
     // MARK: - Computed Properties
 

@@ -89,7 +89,7 @@ final class DefaultHealthKitService: HealthKitService {
             HKQuantityType(.distanceWalkingRunning),
             HKQuantityType(.sixMinuteWalkTestDistance),
             HKCharacteristicType(.biologicalSex),
-            HKCharacteristicType(.dateOfBirth),
+            HKCharacteristicType(.dateOfBirth)
         ]
         return Set(types)
     }
@@ -102,7 +102,7 @@ final class DefaultHealthKitService: HealthKitService {
             .init(.distanceWalkingRunning),
             .init(.sixMinuteWalkTestDistance),
             .init(.walkingAsymmetryPercentage),
-            .init(.walkingDoubleSupportPercentage),
+            .init(.walkingDoubleSupportPercentage)
         ]
         return Set(types)
     }
@@ -159,7 +159,7 @@ final class DefaultHealthKitService: HealthKitService {
         guard !samples.isEmpty else { return }
 
         try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Void, Error>) in
-            store.save(samples) { success, error in
+            store.save(samples) { _, error in
                 if let error {
                     AppLogger.healthKit.error("Failed to save HealthKit samples: \(error.localizedDescription)")
                     cont.resume(throwing: error)
@@ -271,7 +271,7 @@ final class DefaultHealthKitService: HealthKitService {
             end: date
         )
         try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Void, Error>) in
-            store.save(sample) { success, error in
+            store.save(sample) { _, error in
                 if let error {
                     AppLogger.healthKit.error("Failed to save 6MWT distance: \(error.localizedDescription)")
                     cont.resume(throwing: error)

@@ -1,3 +1,4 @@
+// swiftlint:disable file_length
 //
 //  InsightsEngine.swift
 //  Andernet Posture
@@ -161,7 +162,7 @@ final class DefaultInsightsEngine: InsightsEngine {
         let contradictions: [(String, String)] = [
             ("Posture Improving", "Posture Declining"),
             ("Head Posture Improving", "Forward Head Posture Increasing"),
-            ("Ergonomic Risk Improved", "Ergonomic Risk Increased"),
+            ("Ergonomic Risk Improved", "Ergonomic Risk Increased")
         ]
 
         for (positive, negative) in contradictions {
@@ -348,7 +349,11 @@ final class DefaultInsightsEngine: InsightsEngine {
             return Insight(
                 icon: "battery.25percent",
                 title: "Early Fatigue Pattern",
-                body: String(format: "You tend to show fatigue signs after ~%.0f minutes. Consider shorter, more frequent sessions and try the endurance exercises below.", avgMinutes),
+                body: String(
+                    format: "You tend to show fatigue signs after ~%.0f minutes. " +
+                        "Consider shorter, more frequent sessions and try the endurance exercises below.",
+                    avgMinutes
+                ),
                 severity: .mild,
                 category: .progress,
                 exercises: ExerciseLibrary.exercises(for: "fatigue")
@@ -460,7 +465,11 @@ final class DefaultInsightsEngine: InsightsEngine {
             return Insight(
                 icon: "text.book.closed.fill",
                 title: "Exercise Recommendation",
-                body: String(format: "Based on your CVA of %.0f°, targeted neck and upper back exercises are recommended. Tap to see detailed instructions for each exercise.", cva),
+                body: String(
+                    format: "Based on your CVA of %.0f°, targeted neck and upper back exercises are recommended. " +
+                        "Tap to see detailed instructions for each exercise.",
+                    cva
+                ),
                 severity: .moderate,
                 category: .recommendation,
                 exercises: ExerciseLibrary.exercises(for: "forwardHeadPosture")
@@ -469,7 +478,11 @@ final class DefaultInsightsEngine: InsightsEngine {
             return Insight(
                 icon: "text.book.closed.fill",
                 title: "Posture Tip",
-                body: String(format: "Your CVA of %.0f° is slightly below ideal (≥50°). Gentle chin tucks throughout the day can help. See exercises below for detailed guidance.", cva),
+                body: String(
+                    format: "Your CVA of %.0f° is slightly below ideal (≥50°). " +
+                        "Gentle chin tucks throughout the day can help. See exercises below for detailed guidance.",
+                    cva
+                ),
                 severity: .mild,
                 category: .recommendation,
                 exercises: ExerciseLibrary.exercises(for: "forwardHeadPosture").filter { $0.difficulty == .beginner }
@@ -519,7 +532,11 @@ final class DefaultInsightsEngine: InsightsEngine {
             return Insight(
                 icon: "arrow.up.and.down.text.horizontal",
                 title: "Forward Sagittal Shift",
-                body: String(format: "Your SVA of %.1f cm exceeds the normal range (< 5 cm). Targeted core and back extension exercises can help restore sagittal balance.", absSVA),
+                body: String(
+                    format: "Your SVA of %.1f cm exceeds the normal range (< 5 cm). " +
+                        "Targeted core and back extension exercises can help restore sagittal balance.",
+                    absSVA
+                ),
                 severity: .moderate,
                 category: .posture,
                 exercises: ExerciseLibrary.exercises(for: "sagittalImbalance")

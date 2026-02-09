@@ -109,9 +109,9 @@ enum PostureThresholds {
 
     static func svaSeverity(_ cm: Double) -> ClinicalSeverity {
         let abs = Swift.abs(cm)
-        if abs < 5.0  { return .normal }
-        if abs < 7.0  { return .mild }
-        if abs < 9.5  { return .moderate }
+        if abs < 5.0 { return .normal }
+        if abs < 7.0 { return .mild }
+        if abs < 9.5 { return .moderate }
         return .severe
     }
 
@@ -122,7 +122,7 @@ enum PostureThresholds {
 
     static func trunkForwardSeverity(_ deg: Double) -> ClinicalSeverity {
         let abs = Swift.abs(deg)
-        if abs <= 5  { return .normal }
+        if abs <= 5 { return .normal }
         if abs <= 10 { return .mild }
         if abs <= 20 { return .moderate }
         return .severe
@@ -135,8 +135,8 @@ enum PostureThresholds {
 
     static func lateralLeanSeverity(_ deg: Double) -> ClinicalSeverity {
         let abs = Swift.abs(deg)
-        if abs <= 2  { return .normal }
-        if abs <= 5  { return .mild }
+        if abs <= 2 { return .normal }
+        if abs <= 5 { return .mild }
         if abs <= 10 { return .moderate }
         return .severe
     }

@@ -63,6 +63,7 @@ final class DefaultPostureAnalyzer: PostureAnalyzer {
 
     // MARK: - Compute Full Posture Analysis
 
+    // swiftlint:disable:next function_body_length
     func analyze(joints: [JointName: SIMD3<Float>]) -> PostureMetrics? {
         guard
             let root = joints[.root],
@@ -167,7 +168,10 @@ final class DefaultPostureAnalyzer: PostureAnalyzer {
         )
 
         // ── Tier 3: NYPR ──
-        let (nypr, nyprMax) = computeNYPR(joints: joints, cvaDeg: cvaDeg, kyphosisDeg: kyphosisDeg, shoulderCm: shoulderCm, pelvicDeg: pelvicDeg, frontalLean: frontalLean)
+        let (nypr, nyprMax) = computeNYPR(
+            joints: joints, cvaDeg: cvaDeg, kyphosisDeg: kyphosisDeg,
+            shoulderCm: shoulderCm, pelvicDeg: pelvicDeg, frontalLean: frontalLean
+        )
 
         // ── Composite Score ──
         let cvaScore = PostureThresholds.subScore(measured: cvaDeg, idealTarget: 52.5, maxDeviation: 25)
@@ -204,7 +208,7 @@ final class DefaultPostureAnalyzer: PostureAnalyzer {
             "pelvic": PostureThresholds.pelvicSeverity(pelvicDeg),
             "kyphosis": PostureThresholds.kyphosisSeverity(kyphosisDeg),
             "lordosis": PostureThresholds.lordosisSeverity(lordosisDeg),
-            "scoliosis": PostureThresholds.scoliosisSeverity(cm: coronalDevCm),
+            "scoliosis": PostureThresholds.scoliosisSeverity(cm: coronalDevCm)
         ]
 
         return PostureMetrics(
@@ -263,6 +267,7 @@ final class DefaultPostureAnalyzer: PostureAnalyzer {
 
     // MARK: - NYPR Automated Scoring
 
+    // swiftlint:disable:next cyclomatic_complexity
     private func computeNYPR(
         joints: [JointName: SIMD3<Float>],
         cvaDeg: Double,
@@ -276,44 +281,30 @@ final class DefaultPostureAnalyzer: PostureAnalyzer {
         // 1. Head tilt (lateral) — deviation of head from midline in frontal plane
         if let head = joints[.head], let neck1 = joints[.neck1] {
             let headTilt = abs(Float(atan2(head.x - neck1.x, head.y - neck1.y)) * 180 / .pi)
-            if headTilt < 3   { score += 5 }
-            else if headTilt < 8 { score += 3 }
-            else               { score += 1 }
+            if headTilt < 3 { score += 5 } else if headTilt < 8 { score += 3 } else { score += 1 }
         }
 
         // 2. Shoulder level
-        if shoulderCm < 1.5     { score += 5 }
-        else if shoulderCm < 3  { score += 3 }
-        else                    { score += 1 }
+        if shoulderCm < 1.5 { score += 5 } else if shoulderCm < 3 { score += 3 } else { score += 1 }
 
         // 3. Cervical alignment (CVA proxy)
-        if cvaDeg >= 49         { score += 5 }
-        else if cvaDeg >= 40    { score += 3 }
-        else                    { score += 1 }
+        if cvaDeg >= 49 { score += 5 } else if cvaDeg >= 40 { score += 3 } else { score += 1 }
 
         // 4. Thoracic kyphosis
-        if PostureThresholds.kyphosisNormal.contains(kyphosisDeg) { score += 5 }
-        else if kyphosisDeg <= 55 { score += 3 }
-        else                      { score += 1 }
+        if PostureThresholds.kyphosisNormal.contains(kyphosisDeg) { score += 5 } else if kyphosisDeg <= 55 { score += 3 } else { score += 1 }
 
         // 5. Trunk alignment (lateral lean)
-        if abs(frontalLean) < 2   { score += 5 }
-        else if abs(frontalLean) < 5 { score += 3 }
-        else                         { score += 1 }
+        if abs(frontalLean) < 2 { score += 5 } else if abs(frontalLean) < 5 { score += 3 } else { score += 1 }
 
         // 6. Shoulder protraction
         if let ls = joints[.leftShoulder], let rs = joints[.rightShoulder], let s7 = joints[.spine7] {
             let avgShoulderZ = (ls.z + rs.z) / 2
             let protractionCm = Double((avgShoulderZ - s7.z) * 100)
-            if abs(protractionCm) < 2   { score += 5 }
-            else if abs(protractionCm) < 4 { score += 3 }
-            else                            { score += 1 }
+            if abs(protractionCm) < 2 { score += 5 } else if abs(protractionCm) < 4 { score += 3 } else { score += 1 }
         }
 
         // 7. Hip level (pelvic obliquity)
-        if abs(pelvicDeg) < 1     { score += 5 }
-        else if abs(pelvicDeg) < 3 { score += 3 }
-        else                       { score += 1 }
+        if abs(pelvicDeg) < 1 { score += 5 } else if abs(pelvicDeg) < 3 { score += 3 } else { score += 1 }
 
         // 8. Knee alignment (valgus/varus proxy)
         if let lk = joints[.leftLeg], let rk = joints[.rightLeg],
@@ -321,9 +312,7 @@ final class DefaultPostureAnalyzer: PostureAnalyzer {
             let leftKneeAngle = abs(threePointAngleDeg(a: joints[.leftUpLeg] ?? lk, vertex: lk, c: la) - 180)
             let rightKneeAngle = abs(threePointAngleDeg(a: joints[.rightUpLeg] ?? rk, vertex: rk, c: ra) - 180)
             let maxKneeDeviation = Double(max(leftKneeAngle, rightKneeAngle))
-            if maxKneeDeviation < 5   { score += 5 }
-            else if maxKneeDeviation < 10 { score += 3 }
-            else                          { score += 1 }
+            if maxKneeDeviation < 5 { score += 5 } else if maxKneeDeviation < 10 { score += 3 } else { score += 1 }
         }
 
         // 9. Head rotation
@@ -331,9 +320,7 @@ final class DefaultPostureAnalyzer: PostureAnalyzer {
             let neckLine = neck1 - neck3
             let headLine = head - neck1
             let rotAngle = abs(signedAngle2D(SIMD2(neckLine.x, neckLine.z), SIMD2(headLine.x, headLine.z)))
-            if rotAngle < 5   { score += 5 }
-            else if rotAngle < 10 { score += 3 }
-            else                  { score += 1 }
+            if rotAngle < 5 { score += 5 } else if rotAngle < 10 { score += 3 } else { score += 1 }
         }
 
         return (score, NYPRItem.maxAutomatableScore)

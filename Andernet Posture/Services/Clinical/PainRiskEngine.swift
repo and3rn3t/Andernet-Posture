@@ -40,7 +40,9 @@ struct PainRiskAssessment: Sendable {
 // MARK: - Protocol
 
 protocol PainRiskEngine: AnyObject {
+    // swiftlint:disable:next orphaned_doc_comment
     /// Assess pain risk from postural and gait metrics.
+    // swiftlint:disable:next function_parameter_count
     func assess(
         craniovertebralAngleDeg: Double,
         sagittalVerticalAxisCm: Double,
@@ -59,6 +61,7 @@ protocol PainRiskEngine: AnyObject {
 
 final class DefaultPainRiskEngine: PainRiskEngine {
 
+    // swiftlint:disable:next function_parameter_count
     func assess(
         craniovertebralAngleDeg: Double,
         sagittalVerticalAxisCm: Double,

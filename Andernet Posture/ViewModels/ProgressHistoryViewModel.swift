@@ -27,11 +27,11 @@ enum ProgressTimeRange: String, CaseIterable, Identifiable {
     var startDate: Date? {
         let cal = Calendar.current
         switch self {
-        case .oneWeek:     return cal.date(byAdding: .weekOfYear, value: -1,  to: .now)
-        case .oneMonth:    return cal.date(byAdding: .month,      value: -1,  to: .now)
-        case .threeMonths: return cal.date(byAdding: .month,      value: -3,  to: .now)
-        case .sixMonths:   return cal.date(byAdding: .month,      value: -6,  to: .now)
-        case .oneYear:     return cal.date(byAdding: .year,       value: -1,  to: .now)
+        case .oneWeek:     return cal.date(byAdding: .weekOfYear, value: -1, to: .now)
+        case .oneMonth:    return cal.date(byAdding: .month, value: -1, to: .now)
+        case .threeMonths: return cal.date(byAdding: .month, value: -3, to: .now)
+        case .sixMonths:   return cal.date(byAdding: .month, value: -6, to: .now)
+        case .oneYear:     return cal.date(byAdding: .year, value: -1, to: .now)
         case .all:         return nil
         }
     }

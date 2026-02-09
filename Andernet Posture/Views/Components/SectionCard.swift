@@ -10,9 +10,9 @@ import SwiftUI
 
 struct SectionCard<Content: View>: View {
 
-    var title: String? = nil
-    var icon: String? = nil
-    var accentColor: Color? = nil
+    var title: String?
+    var icon: String?
+    var accentColor: Color?
 
     @ViewBuilder let content: () -> Content
 

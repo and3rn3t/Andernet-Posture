@@ -159,8 +159,7 @@ final class DefaultErgonomicScorer: ErgonomicScorer {
         let rightKnee = 180.0 - Double(threePointAngleDeg(a: rh, vertex: rk, c: ra))
         let maxKnee = max(leftKnee, rightKnee)
 
-        if maxKnee > 60 { score += 2 }
-        else if maxKnee > 30 { score += 1 }
+        if maxKnee > 60 { score += 2 } else if maxKnee > 30 { score += 1 }
 
         return min(4, score)
     }
@@ -182,10 +181,7 @@ final class DefaultErgonomicScorer: ErgonomicScorer {
         let angle = abs(armVec.sagittalAngleFromVerticalDeg())
 
         var score: Int
-        if angle <= 20 { score = 1 }
-        else if angle <= 45 { score = 2 }
-        else if angle <= 90 { score = 3 }
-        else { score = 4 }
+        if angle <= 20 { score = 1 } else if angle <= 45 { score = 2 } else if angle <= 90 { score = 3 } else { score = 4 }
 
         // Shoulder raised
         if let trunk = trunk {
@@ -253,7 +249,7 @@ final class DefaultErgonomicScorer: ErgonomicScorer {
             // trunk = 4
             [[3, 5, 6, 7], [5, 6, 7, 8], [6, 7, 8, 9]],
             // trunk = 5
-            [[4, 6, 7, 8], [6, 7, 8, 9], [7, 8, 9, 9]],
+            [[4, 6, 7, 8], [6, 7, 8, 9], [7, 8, 9, 9]]
         ]
         return table[t][n][l]
     }
@@ -277,7 +273,7 @@ final class DefaultErgonomicScorer: ErgonomicScorer {
             // upperArm = 5
             [[6, 7, 8], [7, 8, 8]],
             // upperArm = 6
-            [[7, 8, 8], [8, 9, 9]],
+            [[7, 8, 8], [8, 9, 9]]
         ]
         return table[u][la][w]
     }
@@ -289,18 +285,18 @@ final class DefaultErgonomicScorer: ErgonomicScorer {
 
         // Table C from REBA paper [scoreA][scoreB]
         let table: [[Int]] = [
-            [1,  1,  1,  2,  3,  3,  4,  5,  6,  7,  7,  7],   // A=1
-            [1,  2,  2,  3,  4,  4,  5,  6,  6,  7,  7,  8],   // A=2
-            [2,  3,  3,  3,  4,  5,  6,  7,  7,  8,  8,  8],   // A=3
-            [3,  4,  4,  4,  5,  6,  7,  8,  8,  9,  9,  9],   // A=4
-            [4,  4,  4,  5,  6,  7,  8,  8,  9,  9,  9, 10],   // A=5
-            [6,  6,  6,  7,  8,  8,  9,  9, 10, 10, 10, 10],   // A=6
-            [7,  7,  7,  8,  9,  9,  9, 10, 10, 11, 11, 11],   // A=7
-            [8,  8,  8,  9, 10, 10, 10, 10, 10, 11, 11, 11],   // A=8
-            [9,  9,  9, 10, 10, 10, 11, 11, 11, 12, 12, 12],   // A=9
+            [1, 1, 1, 2, 3, 3, 4, 5, 6, 7, 7, 7],   // A=1
+            [1, 2, 2, 3, 4, 4, 5, 6, 6, 7, 7, 8],   // A=2
+            [2, 3, 3, 3, 4, 5, 6, 7, 7, 8, 8, 8],   // A=3
+            [3, 4, 4, 4, 5, 6, 7, 8, 8, 9, 9, 9],   // A=4
+            [4, 4, 4, 5, 6, 7, 8, 8, 9, 9, 9, 10],   // A=5
+            [6, 6, 6, 7, 8, 8, 9, 9, 10, 10, 10, 10],   // A=6
+            [7, 7, 7, 8, 9, 9, 9, 10, 10, 11, 11, 11],   // A=7
+            [8, 8, 8, 9, 10, 10, 10, 10, 10, 11, 11, 11],   // A=8
+            [9, 9, 9, 10, 10, 10, 11, 11, 11, 12, 12, 12],   // A=9
             [10, 10, 10, 11, 11, 11, 11, 12, 12, 12, 12, 12],  // A=10
             [11, 11, 11, 11, 12, 12, 12, 12, 12, 12, 12, 12],  // A=11
-            [12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12],  // A=12
+            [12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12]  // A=12
         ]
         return table[a][b]
     }

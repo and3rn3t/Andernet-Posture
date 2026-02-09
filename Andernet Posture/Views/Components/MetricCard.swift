@@ -14,10 +14,10 @@ struct MetricCard: View {
     let icon: String
     let title: String
     let value: String
-    var subtitle: String? = nil
-    var severity: ClinicalSeverity? = nil
-    var trendDelta: Double? = nil
-    var tintColor: Color? = nil
+    var subtitle: String?
+    var severity: ClinicalSeverity?
+    var trendDelta: Double?
+    var tintColor: Color?
     var compact: Bool = false
 
     var body: some View {

@@ -49,7 +49,6 @@ struct AROverlaySettingsSection: View {
         } header: {
             Text("AR Overlay")
         } footer: {
-            // swiftlint:disable:next line_length
             Text("Overlay mode changes how the skeleton is visualised during capture. Angle labels and the guideline can be shown with any mode.")
         }
     }

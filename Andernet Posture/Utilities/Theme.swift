@@ -106,21 +106,21 @@ enum AppColors {
 // MARK: - Spacing
 
 enum AppSpacing {
-    static let xs:   CGFloat = 4
-    static let sm:   CGFloat = 8
-    static let md:   CGFloat = 12
-    static let lg:   CGFloat = 16
-    static let xl:   CGFloat = 20
-    static let xxl:  CGFloat = 24
+    static let xs: CGFloat = 4
+    static let sm: CGFloat = 8
+    static let md: CGFloat = 12
+    static let lg: CGFloat = 16
+    static let xl: CGFloat = 20
+    static let xxl: CGFloat = 24
     static let xxxl: CGFloat = 32
 }
 
 // MARK: - Corner Radii
 
 enum AppRadius {
-    static let small:  CGFloat = 10
+    static let small: CGFloat = 10
     static let medium: CGFloat = 16
-    static let large:  CGFloat = 24
+    static let large: CGFloat = 24
 }
 
 // MARK: - Shadows

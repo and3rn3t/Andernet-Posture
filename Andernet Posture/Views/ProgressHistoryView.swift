@@ -353,7 +353,10 @@ struct ProgressHistoryView: View {
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: AppRadius.medium))
         .appShadow(.card)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(label): \(formattedValue(value)) \(viewModel.selectedMetric.unit) on \(session.date.formatted(date: .abbreviated, time: .omitted))")
+        .accessibilityLabel(
+            "\(label): \(formattedValue(value)) \(viewModel.selectedMetric.unit)" +
+            " on \(session.date.formatted(date: .abbreviated, time: .omitted))"
+        )
         .accessibilityHint("Double tap to view session details")
     }
 
@@ -364,7 +367,10 @@ struct ProgressHistoryView: View {
         ContentUnavailableView(
             "No Data",
             systemImage: "chart.line.downtrend.xyaxis",
-            description: Text("No \(viewModel.selectedMetric.displayName.lowercased()) data in the selected time range. Try a longer range or record more sessions.")
+            description: Text(
+                "No \(viewModel.selectedMetric.displayName.lowercased()) data" +
+                " in the selected time range. Try a longer range or record more sessions."
+            )
         )
     }
 

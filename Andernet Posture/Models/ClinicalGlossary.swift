@@ -52,12 +52,11 @@ enum ClinicalGlossary {
         "Upper Crossed": "Upper Crossed Syndrome",
         "Lower Crossed": "Lower Crossed Syndrome",
         "TUG Time": "Timed Up & Go",
-        "6MWD": "6-Minute Walk",
+        "6MWD": "6-Minute Walk"
     ]
 
     // MARK: - Full Dictionary
 
-    // swiftlint:disable line_length
     private static let entries: [String: Entry] = [
         // ── Posture ──
         "Craniovertebral Angle": Entry(
@@ -253,7 +252,6 @@ enum ClinicalGlossary {
             plainName: "Overall Posture Score",
             explanation: "An overall score from 0–100 representing how well your body "
                 + "is aligned. Higher is better."
-        ),
+        )
     ]
-    // swiftlint:enable line_length
 }

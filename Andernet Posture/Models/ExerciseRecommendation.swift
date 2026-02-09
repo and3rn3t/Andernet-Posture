@@ -52,7 +52,8 @@ enum ExerciseLibrary {
     static let forwardHeadPosture: [ExerciseRecommendation] = [
         ExerciseRecommendation(
             name: "Chin Tucks",
-            description: "Retract your chin straight back to align your head over your spine. This is the gold-standard exercise for forward head posture correction.",
+            description: "Retract your chin straight back to align your head over your spine. " +
+                "This is the gold-standard exercise for forward head posture correction.",
             instructions: [
                 "Sit or stand tall with shoulders relaxed.",
                 "Look straight ahead — do not tilt your head up or down.",
@@ -117,7 +118,7 @@ enum ExerciseLibrary {
             difficulty: .beginner,
             targetArea: "Deep cervical flexors",
             evidenceBasis: "Jull et al., 2008 — craniocervical flexion training improves deep neck flexor activation and reduces neck pain."
-        ),
+        )
     ]
 
     // MARK: - Sagittal Imbalance (High SVA / Trunk Forward Lean)
@@ -173,7 +174,7 @@ enum ExerciseLibrary {
             difficulty: .beginner,
             targetArea: "Iliopsoas, rectus femoris",
             evidenceBasis: "Sahrmann, 2002 — hip flexor flexibility directly impacts pelvic tilt and lumbar/thoracic posture."
-        ),
+        )
     ]
 
     // MARK: - Low Walking Speed / Sarcopenia Risk
@@ -229,7 +230,7 @@ enum ExerciseLibrary {
             difficulty: .intermediate,
             targetArea: "Cardiovascular, lower extremities",
             evidenceBasis: "Nemoto et al., 2007 — interval walking training improves peak aerobic capacity and walking speed in older adults."
-        ),
+        )
     ]
 
     // MARK: - Gait Asymmetry / Stride Imbalance
@@ -285,7 +286,7 @@ enum ExerciseLibrary {
             difficulty: .beginner,
             targetArea: "Hip flexors, core stabilizers",
             evidenceBasis: "Lord et al., 2003 — marching exercises improve gait coordination and step symmetry in older adults."
-        ),
+        )
     ]
 
     // MARK: - Fall Risk / Balance Deficits
@@ -341,7 +342,7 @@ enum ExerciseLibrary {
             difficulty: .intermediate,
             targetArea: "Ankle/hip strategy, proprioception",
             evidenceBasis: "Gribble et al., 2012 — star excursion / clock reach exercises improve dynamic balance across multiple movement planes."
-        ),
+        )
     ]
 
     // MARK: - Kyphosis / Rounded Upper Back
@@ -380,7 +381,7 @@ enum ExerciseLibrary {
             difficulty: .beginner,
             targetArea: "Pectoralis major and minor",
             evidenceBasis: "Lynch et al., 2010 — pectoral stretching combined with scapular strengthening reduces thoracic kyphosis."
-        ),
+        )
     ]
 
     // MARK: - Shoulder Asymmetry / Pelvic Obliquity
@@ -419,7 +420,7 @@ enum ExerciseLibrary {
             difficulty: .beginner,
             targetArea: "Rhomboids, middle trapezius",
             evidenceBasis: "Hsu et al., 2019 — scapular stabilization exercises improve shoulder symmetry and reduce compensatory patterns."
-        ),
+        )
     ]
 
     // MARK: - Fatigue / Endurance Deficits
@@ -458,7 +459,7 @@ enum ExerciseLibrary {
             difficulty: .beginner,
             targetArea: "Diaphragm, transverse abdominis",
             evidenceBasis: "Hodges & Richardson, 1996 — diaphragmatic breathing pre-activates the transverse abdominis, supporting spinal stability."
-        ),
+        )
     ]
 
     // MARK: - General Posture Decline
@@ -497,7 +498,7 @@ enum ExerciseLibrary {
             difficulty: .beginner,
             targetArea: "Multifidus, erector spinae, glutes",
             evidenceBasis: "McGill, 2007 — bird-dog is a core stability exercise that builds spinal endurance with minimal compressive load."
-        ),
+        )
     ]
 
     // MARK: - REBA / Ergonomic Risk
@@ -536,7 +537,7 @@ enum ExerciseLibrary {
             difficulty: .beginner,
             targetArea: "Ergonomic setup",
             evidenceBasis: "OSHA guidelines & Hignett & McAtamney, 2000 — workstation alignment directly impacts REBA scores."
-        ),
+        )
     ]
 
     // MARK: - Lookup by Condition

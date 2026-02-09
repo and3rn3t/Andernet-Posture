@@ -41,7 +41,7 @@ final class CoreMotionService: MotionService {
         motionManager.startDeviceMotionUpdates(
             using: .xArbitraryZVertical,
             to: .main
-        ) { [weak self] motion, error in
+        ) { [weak self] motion, _ in
             guard let motion else { return }
             let frame = MotionFrame(from: motion)
             self?.onMotionUpdate?(frame)

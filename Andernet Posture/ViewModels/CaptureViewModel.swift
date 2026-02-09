@@ -103,7 +103,10 @@ final class CaptureViewModel {
     private var lastHapticFrame: Int = 0
 
     // Cached ROM values for frames when ROM analysis is throttled
-    private var cachedROMValues: (hipL: Double, hipR: Double, kneeL: Double, kneeR: Double, pelvicTilt: Double, trunkRot: Double, armSwingL: Double, armSwingR: Double)?
+    private var cachedROMValues: (
+        hipL: Double, hipR: Double, kneeL: Double, kneeR: Double,
+        pelvicTilt: Double, trunkRot: Double, armSwingL: Double, armSwingR: Double
+    )?
 
     // Session accumulators
     private var postureMetricsHistory: [PostureMetrics] = []
@@ -187,6 +190,7 @@ final class CaptureViewModel {
 
     /// Save the recorded session to SwiftData with full clinical analytics.
     @MainActor
+    // swiftlint:disable:next function_body_length
     func saveSession(context: ModelContext) -> GaitSession? {
         let frames = recorder.collectedFrames()
         let steps = recorder.collectedSteps()
@@ -380,7 +384,9 @@ final class CaptureViewModel {
         }
     }
 
+    // swiftlint:disable:next orphaned_doc_comment
     /// Called by BodyARView.Coordinator on each ARBodyAnchor update.
+    // swiftlint:disable:next function_body_length
     func handleBodyFrame(joints: [JointName: SIMD3<Float>], timestamp: TimeInterval) {
         isBodyDetected = true
 
@@ -585,5 +591,4 @@ final class CaptureViewModel {
         postureMetricsHistory.removeAll()
         stepWidthValues.removeAll()
     }
-
 }

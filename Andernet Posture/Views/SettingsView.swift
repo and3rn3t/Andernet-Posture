@@ -278,11 +278,26 @@ struct ClinicalDisclaimerSheet: View {
                     .font(.subheadline.bold())
                     .padding(.top, 4)
 
-                bulletPoint("Clinical measurements are proxy estimates derived from camera-based body tracking and may differ from gold-standard laboratory instruments.")
-                bulletPoint("ARKit body tracking has inherent accuracy limitations (~5-10° for joint angles) compared to marker-based motion capture systems.")
-                bulletPoint("Postural classification, gait pattern detection, and risk assessments are screening tools only and cannot replace clinical evaluation.")
-                bulletPoint("Fall risk, frailty, and pain risk scores are composite estimates and should not be used as standalone clinical indicators.")
-                bulletPoint("The Fried phenotype frailty screen can assess only 3 of 5 criteria from motion data; a complete assessment requires clinical evaluation.")
+                bulletPoint(
+                    "Clinical measurements are proxy estimates derived from camera-based" +
+                    " body tracking and may differ from gold-standard laboratory instruments."
+                )
+                bulletPoint(
+                    "ARKit body tracking has inherent accuracy limitations (~5-10° for joint" +
+                    " angles) compared to marker-based motion capture systems."
+                )
+                bulletPoint(
+                    "Postural classification, gait pattern detection, and risk assessments" +
+                    " are screening tools only and cannot replace clinical evaluation."
+                )
+                bulletPoint(
+                    "Fall risk, frailty, and pain risk scores are composite estimates" +
+                    " and should not be used as standalone clinical indicators."
+                )
+                bulletPoint(
+                    "The Fried phenotype frailty screen can assess only 3 of 5 criteria" +
+                    " from motion data; a complete assessment requires clinical evaluation."
+                )
             }
 
             Group {

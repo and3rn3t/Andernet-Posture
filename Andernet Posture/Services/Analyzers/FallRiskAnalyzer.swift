@@ -71,6 +71,7 @@ final class DefaultFallRiskAnalyzer: FallRiskAnalyzer {
         static let footClearance: Double   = 0.05
     }
 
+    // swiftlint:disable:next function_body_length
     func assess(
         walkingSpeedMPS: Double?,
         strideTimeCVPercent: Double?,

@@ -11,7 +11,7 @@ import Charts
 struct ChartCard<Content: View>: View {
 
     let title: String
-    var icon: String? = nil
+    var icon: String?
 
     @ScaledMetric(relativeTo: .body) private var chartHeight: CGFloat = 180
 

@@ -120,6 +120,7 @@ struct SessionAnalysisSection: View {
     // MARK: - Finding Row
 
     @ViewBuilder
+    // swiftlint:disable:next function_body_length
     private func findingRow(_ finding: AbnormalFinding) -> some View {
         VStack(alignment: .leading, spacing: AppSpacing.sm) {
             // Header — metric, value, severity

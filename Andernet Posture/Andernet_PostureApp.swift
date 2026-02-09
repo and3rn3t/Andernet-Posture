@@ -67,4 +67,3 @@ struct Andernet_PostureApp: App {
         .modelContainer(sharedModelContainer)
     }
 }
-

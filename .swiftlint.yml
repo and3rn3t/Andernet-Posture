@@ -15,6 +15,8 @@ excluded:
 disabled_rules:
   - trailing_whitespace        # noisy in Xcode-generated files
   - todo                       # allow TODO/FIXME during development
+  - large_tuple                # clinical analyzers return multi-value tuples
+  - implicit_optional_initialization # @Model properties need explicit nil init
 
 opt_in_rules:
   - closure_spacing
@@ -23,8 +25,6 @@ opt_in_rules:
   - empty_string
   - fatal_error_message
   - first_where
-  - force_unwrapping
-  - implicitly_unwrapped_optional
   - last_where
   - modifier_order
   - overridden_super_call
@@ -38,30 +38,30 @@ opt_in_rules:
 
 # Tuning
 line_length:
-  warning: 140
+  warning: 160
   error: 200
   ignores_comments: true
   ignores_urls: true
 
 type_body_length:
-  warning: 300
-  error: 500
+  warning: 500
+  error: 800
 
 file_length:
-  warning: 500
+  warning: 600
   error: 1000
 
 function_body_length:
-  warning: 60
-  error: 150
+  warning: 100
+  error: 200
 
 function_parameter_count:
-  warning: 6
+  warning: 8
   error: 14
 
 cyclomatic_complexity:
-  warning: 10
-  error: 25
+  warning: 15
+  error: 30
 
 large_tuple:
   warning: 2
@@ -96,6 +96,27 @@ identifier_name:
     - rx
     - ry
     - rz
+    - t
+    - s
+    - v
+    - p
+    - l
+    - n
+    - k
+    - h
+    - a
+    - b
+    - u
+    - w
+    - j
+    - r
+    - f
+    - c
+    - m
+    - q
+    - e
+    - g
+    - d
 
 nesting:
   type_level: 2

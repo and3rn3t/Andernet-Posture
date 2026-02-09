@@ -17,7 +17,7 @@ struct MetricExplainer: Identifiable {
     let clinicalSignificance: String
     let icon: String
     /// Key into ExerciseLibrary for relevant corrective exercises.
-    var exerciseConditionKey: String? = nil
+    var exerciseConditionKey: String?
 }
 
 // MARK: - Metric Library
@@ -115,7 +115,7 @@ extension MetricExplainer {
             normalRange: "Ideal alignment",
             clinicalSignificance: "Each non-ideal postural type is associated with specific muscle imbalances. Kyphotic-Lordotic: tight hip flexors and weak abdominals. Flat-Back: tight hamstrings. Sway-Back: weak external obliques.",
             icon: "person.fill"
-        ),
+        )
     ]
 }
 // swiftlint:enable line_length

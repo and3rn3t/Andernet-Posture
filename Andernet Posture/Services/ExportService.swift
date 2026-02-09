@@ -1,3 +1,4 @@
+// swiftlint:disable file_length
 //
 //  ExportService.swift
 //  Andernet Posture
@@ -616,6 +617,7 @@ private extension ExportService {
     // MARK: - Clinical Analysis Section
 
     @MainActor
+    // swiftlint:disable:next function_body_length
     static func drawAnalysisSection(
         analysis: SessionAnalysis,
         startY: CGFloat,

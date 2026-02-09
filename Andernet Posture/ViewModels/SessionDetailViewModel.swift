@@ -517,8 +517,6 @@ final class SessionDetailViewModel {
 
     // MARK: - Helpers
 
-
-
     private func nyprSeverity(_ score: Int, max: Int) -> ClinicalSeverity {
         let pct = Double(score) / Double(max) * 100
         if pct >= 80 { return .normal }

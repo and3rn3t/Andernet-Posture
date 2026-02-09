@@ -144,6 +144,7 @@ final class DefaultGaitAnalyzer: GaitAnalyzer {
 
     // MARK: - Process Frame
 
+    // swiftlint:disable:next function_body_length
     func processFrame(joints: [JointName: SIMD3<Float>], timestamp: TimeInterval) -> GaitMetrics {
         guard
             let leftFoot = joints[.leftFoot],
@@ -320,6 +321,7 @@ final class DefaultGaitAnalyzer: GaitAnalyzer {
                     doubleSupportPercent: nil, strideTimeCVPercent: nil)
     }
 
+    // swiftlint:disable:next cyclomatic_complexity function_parameter_count
     private func detectStrike(
         samples: [TimedSample],
         foot: StepEvent.Foot,

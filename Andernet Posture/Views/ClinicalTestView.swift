@@ -523,8 +523,6 @@ struct ClinicalTestView: View {
         case .none: break
         }
     }
-
-
 }
 
 #Preview {
