@@ -511,55 +511,6 @@
         }
       }
     },
-    "excellent" : {
-      "extractionState" : "manual",
-      "comment" : "Score category for VoiceOver — lowercase",
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "excelente"
-          }
-        }
-      }
-    },
-    "good" : {
-      "extractionState" : "manual",
-      "comment" : "Score category for VoiceOver — lowercase",
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "bueno"
-          }
-        }
-      }
-    },
-    "fair" : {
-      "extractionState" : "manual",
-      "comment" : "Score category for VoiceOver — lowercase",
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "regular"
-          }
-        }
-      }
-    },
-    "needs improvement" : {
-      "extractionState" : "manual",
-      "comment" : "Score category for VoiceOver — lowercase",
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "necesita mejorar"
-          }
-        }
-      }
-    },
-
     "Posture Improving" : {
       "extractionState" : "manual",
       "comment" : "Insight card title — posture trend improving",
