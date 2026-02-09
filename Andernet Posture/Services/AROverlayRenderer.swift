@@ -433,28 +433,3 @@ private struct ROMItem {
     let angle: Double
     let normalMax: Double
 }
-
-// MARK: - ClinicalSeverity ordinal helpers
-
-extension ClinicalSeverity {
-
-    /// Numeric ordinal for comparison (higher = worse).
-    var ordinal: Int {
-        switch self {
-        case .normal:   return 0
-        case .mild:     return 1
-        case .moderate: return 2
-        case .severe:   return 3
-        }
-    }
-
-    /// Create from numeric ordinal.
-    static func from(ordinal: Int) -> ClinicalSeverity {
-        switch ordinal {
-        case 0:  return .normal
-        case 1:  return .mild
-        case 2:  return .moderate
-        default: return .severe
-        }
-    }
-}

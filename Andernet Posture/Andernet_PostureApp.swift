@@ -15,7 +15,6 @@ private let logger = Logger(subsystem: "dev.andernet.posture", category: "App")
 struct Andernet_PostureApp: App {
 
     let sharedModelContainer: ModelContainer
-    @State private var containerError: String?
     @State private var showSplash = true
 
     init() {

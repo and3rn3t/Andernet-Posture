@@ -177,13 +177,19 @@ final class DefaultGaitAnalyzer: GaitAnalyzer {
         leftAnkleSamples.append(TimedSample(position: filteredLeftFoot, timestamp: timestamp))
         rightAnkleSamples.append(TimedSample(position: filteredRightFoot, timestamp: timestamp))
 
-        // Trim to window duration
-        leftAnkleSamples = leftAnkleSamples.filter { timestamp - $0.timestamp <= windowDurationSec * 2 }
-        rightAnkleSamples = rightAnkleSamples.filter { timestamp - $0.timestamp <= windowDurationSec * 2 }
+        // Trim samples outside window duration (efficient: remove oldest until within window)
+        while let first = leftAnkleSamples.first, timestamp - first.timestamp > windowDurationSec * 2 {
+            leftAnkleSamples.removeFirst()
+        }
+        while let first = rightAnkleSamples.first, timestamp - first.timestamp > windowDurationSec * 2 {
+            rightAnkleSamples.removeFirst()
+        }
 
         // Track root position for walking speed
         recentPositions.append((pos: root, time: timestamp))
-        recentPositions = recentPositions.filter { timestamp - $0.time <= speedWindowSec }
+        while let first = recentPositions.first, timestamp - first.time > speedWindowSec {
+            recentPositions.removeFirst()
+        }
 
         // Track max foot height during swing for clearance (use filtered values)
         leftMaxSwingY = max(leftMaxSwingY, filteredLeftY)
@@ -241,7 +247,9 @@ final class DefaultGaitAnalyzer: GaitAnalyzer {
         }
 
         // Cadence
-        stepTimestamps = stepTimestamps.filter { timestamp - $0 <= cadenceWindowSec }
+        while let first = stepTimestamps.first, timestamp - first > cadenceWindowSec {
+            stepTimestamps.removeFirst()
+        }
         let cadence = computeCadence()
 
         // Average stride length

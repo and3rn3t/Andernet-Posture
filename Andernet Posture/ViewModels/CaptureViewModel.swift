@@ -82,6 +82,9 @@ final class CaptureViewModel {
     var isBodyDetected: Bool = false
     var calibrationCountdown: Int = 3
 
+    // Calibration timer (time-based, not frame-based)
+    private var calibrationStartTime: TimeInterval?
+
     // Error reporting
     var errorMessage: String?
 
@@ -381,10 +384,15 @@ final class CaptureViewModel {
     func handleBodyFrame(joints: [JointName: SIMD3<Float>], timestamp: TimeInterval) {
         isBodyDetected = true
 
-        // Handle calibration → recording transition
+        // Handle calibration → recording transition (time-based: 3 seconds)
         if recordingState == .calibrating {
-            calibrationCountdown -= 1
-            if calibrationCountdown <= 0 {
+            if calibrationStartTime == nil {
+                calibrationStartTime = timestamp
+            }
+            let elapsed = timestamp - (calibrationStartTime ?? timestamp)
+            calibrationCountdown = max(0, 3 - Int(elapsed))
+            if elapsed >= 3.0 {
+                calibrationStartTime = nil
                 recordingState = .recording
                 recorder.startRecording()
                 motionService.start()
@@ -573,16 +581,9 @@ final class CaptureViewModel {
         frameIndex = 0
         lastHapticFrame = 0
         cachedROMValues = nil
+        calibrationStartTime = nil
         postureMetricsHistory.removeAll()
         stepWidthValues.removeAll()
     }
 
-    // MARK: - Helpers
-
-    private func standardDeviation(_ values: [Double]) -> Double {
-        guard values.count >= 2 else { return 0 }
-        let mean = values.reduce(0, +) / Double(values.count)
-        let variance = values.reduce(0.0) { $0 + ($1 - mean) * ($1 - mean) } / Double(values.count - 1)
-        return sqrt(variance)
-    }
 }

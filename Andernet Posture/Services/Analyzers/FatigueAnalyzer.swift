@@ -209,13 +209,6 @@ final class DefaultFatigueAnalyzer: FatigueAnalyzer {
 
     // MARK: - Private Helpers
 
-    private func standardDeviation(_ values: [Double]) -> Double {
-        guard values.count >= 2 else { return 0 }
-        let mean = values.reduce(0, +) / Double(values.count)
-        let variance = values.reduce(0.0) { $0 + ($1 - mean) * ($1 - mean) } / Double(values.count - 1)
-        return sqrt(variance)
-    }
-
     private func average(_ values: [Double]) -> Double {
         guard !values.isEmpty else { return 0 }
         return values.reduce(0, +) / Double(values.count)

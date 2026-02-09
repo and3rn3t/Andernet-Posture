@@ -19,9 +19,41 @@ enum ClinicalGlossary {
     }
 
     /// Look up a glossary entry by clinical metric label.
+    /// Resolves aliases to canonical keys automatically.
     static func entry(for label: String) -> Entry? {
-        entries[label]
+        if let alias = aliases[label] {
+            return entries[alias]
+        }
+        return entries[label]
     }
+
+    // MARK: - Aliases
+
+    /// Maps variant labels to their canonical key so content isn't duplicated.
+    private static let aliases: [String: String] = [
+        "Craniovertebral Angle (CVA)": "Craniovertebral Angle",
+        "CVA": "Craniovertebral Angle",
+        "Sagittal Vertical Axis (SVA)": "Sagittal Vertical Axis",
+        "SVA": "Sagittal Vertical Axis",
+        "Lateral Trunk Lean": "Lateral Lean",
+        "Trunk Lean": "Trunk Forward Lean",
+        "Coronal Deviation": "Coronal Spine Deviation",
+        "Kendall Type": "Postural Type (Kendall)",
+        "Gait Asymmetry": "Gait Asymmetry (Robinson SI)",
+        "Fall Risk": "Fall Risk Score",
+        "Fall Risk Level": "Fall Risk Score",
+        "REBA Score (Ergonomic Risk)": "REBA Score",
+        "Hip ROM": "Hip ROM (avg bilateral)",
+        "Knee ROM": "Knee ROM (avg bilateral)",
+        "Sway Area": "Sway Area (95% ellipse)",
+        "Harmonic Ratio": "Harmonic Ratio (AP)",
+        "SPARC Score": "Smoothness (SPARC)",
+        "Frailty Score": "Frailty (Fried)",
+        "Upper Crossed": "Upper Crossed Syndrome",
+        "Lower Crossed": "Lower Crossed Syndrome",
+        "TUG Time": "Timed Up & Go",
+        "6MWD": "6-Minute Walk",
+    ]
 
     // MARK: - Full Dictionary
 
@@ -33,17 +65,7 @@ enum ClinicalGlossary {
             explanation: "Measures how far forward your head sits relative to your neck. "
                 + "A smaller angle means your head juts forward more than it should."
         ),
-        "Craniovertebral Angle (CVA)": Entry(
-            plainName: "Head Position",
-            explanation: "Measures how far forward your head sits relative to your neck. "
-                + "A smaller angle means your head juts forward more than it should."
-        ),
         "Sagittal Vertical Axis": Entry(
-            plainName: "Body Lean (Front-to-Back)",
-            explanation: "How far your upper body leans forward past your hips when "
-                + "viewed from the side. Ideally your ear, shoulder, and hip line up vertically."
-        ),
-        "Sagittal Vertical Axis (SVA)": Entry(
             plainName: "Body Lean (Front-to-Back)",
             explanation: "How far your upper body leans forward past your hips when "
                 + "viewed from the side. Ideally your ear, shoulder, and hip line up vertically."
@@ -54,11 +76,6 @@ enum ClinicalGlossary {
                 + "A large lean can strain your back and affect your balance."
         ),
         "Lateral Lean": Entry(
-            plainName: "Side-to-Side Tilt",
-            explanation: "How much your torso tilts to one side. Even a small persistent "
-                + "tilt can indicate muscle imbalance or a leg-length difference."
-        ),
-        "Lateral Trunk Lean": Entry(
             plainName: "Side-to-Side Tilt",
             explanation: "How much your torso tilts to one side. Even a small persistent "
                 + "tilt can indicate muscle imbalance or a leg-length difference."
@@ -88,21 +105,11 @@ enum ClinicalGlossary {
             explanation: "How far your spine shifts to one side from the center line. "
                 + "Significant shift may relate to scoliosis or muscle guarding."
         ),
-        "Coronal Deviation": Entry(
-            plainName: "Spine Side-Shift",
-            explanation: "How far your spine shifts to one side from the center line. "
-                + "Significant shift may relate to scoliosis or muscle guarding."
-        ),
         "Postural Type (Kendall)": Entry(
             plainName: "Posture Pattern",
             explanation: "A classification of your overall posture shape, such as "
                 + "\"ideal,\" \"sway-back,\" or \"flat-back.\" Helps identify which muscles "
                 + "may be tight or weak."
-        ),
-        "Kendall Type": Entry(
-            plainName: "Posture Pattern",
-            explanation: "A classification of your overall posture shape. "
-                + "Helps identify which muscles may be tight or weak."
         ),
 
         // ── Gait ──
@@ -122,11 +129,6 @@ enum ClinicalGlossary {
                 + "strides can indicate weakness, stiffness, or a cautious walking style."
         ),
         "Gait Asymmetry (Robinson SI)": Entry(
-            plainName: "Walking Evenness",
-            explanation: "Whether your left and right steps are equal in timing and length. "
-                + "High asymmetry means one side is doing more work than the other."
-        ),
-        "Gait Asymmetry": Entry(
             plainName: "Walking Evenness",
             explanation: "Whether your left and right steps are equal in timing and length. "
                 + "High asymmetry means one side is doing more work than the other."
@@ -197,22 +199,12 @@ enum ClinicalGlossary {
             explanation: "A composite score (0–100) that estimates your risk of falling, "
                 + "based on your walking speed, balance, and other factors."
         ),
-        "Fall Risk": Entry(
-            plainName: "Fall Risk",
-            explanation: "A composite score estimating your risk of falling, "
-                + "based on walking speed, balance, sway, and other factors."
-        ),
         "Fatigue Index": Entry(
             plainName: "Tiredness During Session",
             explanation: "How much your posture and walking quality declined from the "
                 + "start to the end of the session. Higher means more fatigue."
         ),
         "REBA Score": Entry(
-            plainName: "Ergonomic Risk",
-            explanation: "Rates the physical stress of your postures on a 1–15 scale. "
-                + "Higher scores mean your body positions put more strain on your joints."
-        ),
-        "REBA Score (Ergonomic Risk)": Entry(
             plainName: "Ergonomic Risk",
             explanation: "Rates the physical stress of your postures on a 1–15 scale. "
                 + "Higher scores mean your body positions put more strain on your joints."
@@ -261,72 +253,6 @@ enum ClinicalGlossary {
             plainName: "Overall Posture Score",
             explanation: "An overall score from 0–100 representing how well your body "
                 + "is aligned. Higher is better."
-        ),
-
-        // ── Short-label aliases used in PDF export ──
-        "CVA": Entry(
-            plainName: "Head Position",
-            explanation: "Craniovertebral angle — how far forward your head sits "
-                + "relative to your neck."
-        ),
-        "SVA": Entry(
-            plainName: "Body Lean (Front-to-Back)",
-            explanation: "Sagittal vertical axis — how far your upper body leans "
-                + "forward past your hips when viewed from the side."
-        ),
-        "Trunk Lean": Entry(
-            plainName: "Forward Lean",
-            explanation: "How much your torso tilts forward while standing or walking."
-        ),
-        "Hip ROM": Entry(
-            plainName: "Hip Flexibility",
-            explanation: "How far your hips bend during each step."
-        ),
-        "Knee ROM": Entry(
-            plainName: "Knee Bend",
-            explanation: "How far your knees bend during the swing phase of walking."
-        ),
-        "Sway Area": Entry(
-            plainName: "Balance Footprint",
-            explanation: "The area your body sways over while standing still."
-        ),
-        "Fall Risk Level": Entry(
-            plainName: "Fall Risk Category",
-            explanation: "A qualitative label (low, moderate, high) summarising "
-                + "your overall risk of falling."
-        ),
-        "SPARC Score": Entry(
-            plainName: "Movement Smoothness",
-            explanation: "How fluid and controlled your movements are. "
-                + "Values closer to 0 indicate smoother motion."
-        ),
-        "Harmonic Ratio": Entry(
-            plainName: "Walking Rhythm",
-            explanation: "How regular and rhythmic your walking pattern is."
-        ),
-        "Frailty Score": Entry(
-            plainName: "Overall Robustness",
-            explanation: "A 0–5 score assessing physical frailty."
-        ),
-        "Upper Crossed": Entry(
-            plainName: "Rounded Shoulder Pattern",
-            explanation: "A muscle imbalance where chest and neck muscles tighten "
-                + "while upper back muscles weaken."
-        ),
-        "Lower Crossed": Entry(
-            plainName: "Swayback Pattern",
-            explanation: "A muscle imbalance where hip flexors and lower back tighten "
-                + "while glutes and abdominals weaken."
-        ),
-        "TUG Time": Entry(
-            plainName: "Get-Up-and-Walk Test",
-            explanation: "Timed Up & Go — how long it takes to stand, walk 3 m, "
-                + "turn, walk back, and sit down."
-        ),
-        "6MWD": Entry(
-            plainName: "Endurance Walk Distance",
-            explanation: "6-Minute Walk Distance — how far you can walk in 6 minutes "
-                + "at your own pace."
         ),
     ]
     // swiftlint:enable line_length

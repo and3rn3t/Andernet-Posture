@@ -129,7 +129,7 @@ extension BodyARView {
             let rootTransform = body.transform
 
             // Extract joint positions on this (nonisolated) thread to avoid
-            // main-actor access to JointName.jointPath inside assumeIsolated.
+            // main-actor access to JointName.jointPath inside the main-actor block.
             var joints: [JointName: SIMD3<Float>] = [:]
             let allJoints = JointName.allCases   // enum value, Sendable
             for joint in allJoints {
@@ -144,23 +144,25 @@ extension BodyARView {
 
             let timestamp = session.currentFrame?.timestamp ?? CACurrentMediaTime()
 
-            MainActor.assumeIsolated {
+            Task { @MainActor [weak self] in
+                guard let self else { return }
                 // Frame-rate throttling: skip frames when samplingRate < 60
-                let minInterval = samplingRate > 0 ? (1.0 / samplingRate) : 0
-                if timestamp - lastForwardedTimestamp >= minInterval {
-                    lastForwardedTimestamp = timestamp
-                    viewModel.handleBodyFrame(joints: joints, timestamp: timestamp)
+                let minInterval = self.samplingRate > 0 ? (1.0 / self.samplingRate) : 0
+                if timestamp - self.lastForwardedTimestamp >= minInterval {
+                    self.lastForwardedTimestamp = timestamp
+                    self.viewModel.handleBodyFrame(joints: joints, timestamp: timestamp)
                 }
 
                 // Update skeleton overlay (respects showSkeleton toggle)
-                updateSkeletonOverlay(joints: joints)
+                self.updateSkeletonOverlay(joints: joints)
             }
         }
 
         nonisolated func session(_ session: ARSession, didFailWithError error: Error) {
             AppLogger.arTracking.error("AR session failed: \(error.localizedDescription)")
-            MainActor.assumeIsolated {
-                viewModel.errorMessage = error.localizedDescription
+            let message = error.localizedDescription
+            Task { @MainActor [weak self] in
+                self?.viewModel.errorMessage = message
             }
         }
 

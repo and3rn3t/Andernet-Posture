@@ -13,6 +13,7 @@ import Accessibility
 struct SessionDetailView: View {
     @State private var viewModel: SessionDetailViewModel
     @State private var pulseOpacity: Double = 0.3
+    @State private var showExport = false
 
     init(session: GaitSession) {
         _viewModel = State(initialValue: SessionDetailViewModel(session: session))
@@ -88,6 +89,14 @@ struct SessionDetailView: View {
         .navigationBarTitleDisplayMode(.large)
         .reduceMotionAware()
         .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    showExport = true
+                } label: {
+                    Image(systemName: "square.and.arrow.up")
+                }
+                .accessibilityLabel("Export session")
+            }
             if viewModel.session.framesData != nil {
                 ToolbarItem(placement: .topBarTrailing) {
                     NavigationLink {
@@ -98,6 +107,9 @@ struct SessionDetailView: View {
                     .accessibilityLabel("Play back session")
                 }
             }
+        }
+        .sheet(isPresented: $showExport) {
+            ExportView(session: viewModel.session)
         }
     }
 

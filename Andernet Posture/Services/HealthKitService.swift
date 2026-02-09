@@ -78,7 +78,7 @@ final class DefaultHealthKitService: HealthKitService {
     // MARK: Shared types
 
     private var readTypes: Set<HKObjectType> {
-        var types: [HKObjectType] = [
+        let types: [HKObjectType] = [
             HKQuantityType(.stepCount),
             HKQuantityType(.walkingSpeed),
             HKQuantityType(.walkingStepLength),

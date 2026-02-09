@@ -107,3 +107,14 @@ func linearRegression(_ ys: [Double]) -> (slope: Double, intercept: Double, rSqu
     let r2 = ssTot > 1e-12 ? 1.0 - ssRes / ssTot : 0
     return (slope, intercept, r2)
 }
+
+// MARK: - Statistical Helpers
+
+/// Sample standard deviation (Bessel-corrected, n − 1 denominator).
+/// Returns 0 if fewer than 2 values.
+func standardDeviation(_ values: [Double]) -> Double {
+    guard values.count >= 2 else { return 0 }
+    let mean = values.reduce(0, +) / Double(values.count)
+    let variance = values.reduce(0.0) { $0 + ($1 - mean) * ($1 - mean) } / Double(values.count - 1)
+    return sqrt(variance)
+}

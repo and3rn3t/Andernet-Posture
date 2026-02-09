@@ -84,6 +84,9 @@ final class DefaultROMAnalyzer: ROMAnalyzer {
 
     // MARK: Session accumulators
 
+    /// Maximum history size (~10 minutes at 20fps recording every 3rd frame).
+    private let maxHistory = 12_000
+
     private var hipFlexLeftHistory: [Double] = []
     private var hipFlexRightHistory: [Double] = []
     private var kneeFlexLeftHistory: [Double] = []
@@ -152,6 +155,19 @@ final class DefaultROMAnalyzer: ROMAnalyzer {
         pelvicTiltHistory.append(metrics.pelvicTiltDeg)
         armSwingLeftHistory.append(metrics.armSwingLeftDeg)
         armSwingRightHistory.append(metrics.armSwingRightDeg)
+
+        // Cap all histories to prevent unbounded memory growth
+        if hipFlexLeftHistory.count > maxHistory {
+            let drop = hipFlexLeftHistory.count - maxHistory
+            hipFlexLeftHistory.removeFirst(drop)
+            hipFlexRightHistory.removeFirst(drop)
+            kneeFlexLeftHistory.removeFirst(drop)
+            kneeFlexRightHistory.removeFirst(drop)
+            trunkRotHistory.removeFirst(drop)
+            pelvicTiltHistory.removeFirst(drop)
+            armSwingLeftHistory.removeFirst(drop)
+            armSwingRightHistory.removeFirst(drop)
+        }
     }
 
     func sessionSummary() -> ROMSessionSummary {

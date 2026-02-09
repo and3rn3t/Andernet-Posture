@@ -55,9 +55,14 @@ protocol SessionRecorder {
 
 final class DefaultSessionRecorder: SessionRecorder {
 
-    private(set) var state: RecordingState = .idle
+    /// Backing storage for state — always access via `state` computed property.
+    private var _state: RecordingState = .idle
 
-    /// Serial queue for thread-safe access to recorded data arrays.
+    var state: RecordingState {
+        recordingQueue.sync { _state }
+    }
+
+    /// Serial queue for thread-safe access to recorded data arrays and state.
     private let recordingQueue = DispatchQueue(label: "com.andernet.posture.recording", qos: .userInitiated)
 
     /// Maximum frame capacity before decimation kicks in (~10 minutes at 60 fps).
@@ -72,8 +77,9 @@ final class DefaultSessionRecorder: SessionRecorder {
     private var motionFrames: [MotionFrame] = []
 
     var elapsedTime: TimeInterval {
+        let currentState = state
         guard let start = startDate else { return 0 }
-        switch state {
+        switch currentState {
         case .recording:
             return Date().timeIntervalSince(start) - accumulatedPause
         case .paused:
@@ -92,60 +98,72 @@ final class DefaultSessionRecorder: SessionRecorder {
     // MARK: State transitions
 
     func startCalibration() {
-        guard state == .idle else { return }
-        state = .calibrating
+        recordingQueue.sync {
+            guard _state == .idle else { return }
+            _state = .calibrating
+        }
         AppLogger.recorder.info("Calibration started")
     }
 
     func startRecording() {
-        guard state == .calibrating || state == .idle else { return }
-        state = .recording
-        startDate = Date()
-        accumulatedPause = 0
-        // Pre-allocate arrays to reduce heap churn during recording.
-        frames.reserveCapacity(3600)         // ~1 min at 60 fps
-        steps.reserveCapacity(200)
-        motionFrames.reserveCapacity(3600)   // ~1 min at 60 fps
+        recordingQueue.sync {
+            guard _state == .calibrating || _state == .idle else { return }
+            _state = .recording
+            startDate = Date()
+            accumulatedPause = 0
+            // Pre-allocate arrays to reduce heap churn during recording.
+            frames.reserveCapacity(3600)         // ~1 min at 60 fps
+            steps.reserveCapacity(200)
+            motionFrames.reserveCapacity(3600)   // ~1 min at 60 fps
+        }
     }
 
     func pause() {
-        guard state == .recording else { return }
-        state = .paused
-        pauseDate = Date()
+        recordingQueue.sync {
+            guard _state == .recording else { return }
+            _state = .paused
+            pauseDate = Date()
+        }
     }
 
     func resume() {
-        guard state == .paused, let pd = pauseDate else { return }
-        accumulatedPause += Date().timeIntervalSince(pd)
-        pauseDate = nil
-        state = .recording
+        recordingQueue.sync {
+            guard _state == .paused, let pd = pauseDate else { return }
+            accumulatedPause += Date().timeIntervalSince(pd)
+            pauseDate = nil
+            _state = .recording
+        }
     }
 
     func stop() {
-        guard state == .recording || state == .paused else { return }
-        if state == .recording {
-            pauseDate = Date()
+        recordingQueue.sync {
+            guard _state == .recording || _state == .paused else { return }
+            if _state == .recording {
+                pauseDate = Date()
+            }
+            _state = .finished
+            AppLogger.recorder.info("Recording stopped — \(self.frames.count) frames, \(self.steps.count) steps")
         }
-        state = .finished
-        AppLogger.recorder.info("Recording stopped — \(self.frames.count) frames, \(self.steps.count) steps")
     }
 
     func reset() {
-        state = .idle
-        startDate = nil
-        pauseDate = nil
-        accumulatedPause = 0
-        frames.removeAll()
-        steps.removeAll()
-        motionFrames.removeAll()
+        recordingQueue.sync {
+            _state = .idle
+            startDate = nil
+            pauseDate = nil
+            accumulatedPause = 0
+            frames.removeAll()
+            steps.removeAll()
+            motionFrames.removeAll()
+        }
         AppLogger.recorder.debug("Recorder reset")
     }
 
     // MARK: Data collection
 
     func recordFrame(_ frame: BodyFrame) {
-        guard state == .recording else { return }
         recordingQueue.async { [self] in
+            guard _state == .recording else { return }
             // Decimation strategy: when the buffer hits maxFrameCapacity, keep
             // every other frame from the first half (effectively halving temporal
             // resolution for older data) then continue appending new frames.
@@ -166,15 +184,15 @@ final class DefaultSessionRecorder: SessionRecorder {
     }
 
     func recordStep(_ step: StepEvent) {
-        guard state == .recording else { return }
         recordingQueue.async { [self] in
+            guard _state == .recording else { return }
             steps.append(step)
         }
     }
 
     func recordMotionFrame(_ frame: MotionFrame) {
-        guard state == .recording else { return }
         recordingQueue.async { [self] in
+            guard _state == .recording else { return }
             motionFrames.append(frame)
         }
     }

@@ -55,6 +55,7 @@ final class ClinicalTestViewModel {
     // MARK: - Private
 
     private var timer: Timer?
+    private var sixMWTAutoCompleteTimer: Timer?
     private var testStartTime: Date?
     private var phaseStartTime: Date?
     private var currentStep = 0
@@ -67,6 +68,11 @@ final class ClinicalTestViewModel {
         self.balanceAnalyzer = balanceAnalyzer
         self.cardioEstimator = cardioEstimator
         self.healthKitService = healthKitService
+    }
+
+    deinit {
+        timer?.invalidate()
+        sixMWTAutoCompleteTimer?.invalidate()
     }
 
     // MARK: - TUG Protocol
@@ -168,8 +174,9 @@ final class ClinicalTestViewModel {
                 self.testStartTime = Date()
                 self.testState = .running(phaseLabel: "Walk at your normal pace (6 minutes)")
                 self.startTimer()
-                // Auto-complete after 6 minutes
-                DispatchQueue.main.asyncAfter(deadline: .now() + 360) { [weak self] in
+                // Auto-complete after 6 minutes via cancellable timer
+                self.sixMWTAutoCompleteTimer?.invalidate()
+                self.sixMWTAutoCompleteTimer = Timer.scheduledTimer(withTimeInterval: 360, repeats: false) { [weak self] _ in
                     self?.complete6MWT()
                 }
             }
@@ -184,6 +191,8 @@ final class ClinicalTestViewModel {
     /// Complete 6MWT (auto or manual).
     func complete6MWT(age: Int? = nil, heightM: Double? = nil, weightKg: Double? = nil, sexIsMale: Bool? = nil) {
         stopTimer()
+        sixMWTAutoCompleteTimer?.invalidate()
+        sixMWTAutoCompleteTimer = nil
         sixMWTResult = cardioEstimator.evaluate6MWT(
             distanceM: sixMWTDistance,
             age: age,
@@ -211,6 +220,8 @@ final class ClinicalTestViewModel {
 
     func cancelTest() {
         stopTimer()
+        sixMWTAutoCompleteTimer?.invalidate()
+        sixMWTAutoCompleteTimer = nil
         testState = .cancelled
         balanceAnalyzer.reset()
     }

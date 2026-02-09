@@ -65,6 +65,10 @@ final class DefaultSmoothnessAnalyzer: SmoothnessAnalyzer {
     /// Minimum samples for FFT-based analysis (~3 seconds at 60Hz).
     private let minSamples = 128
 
+    /// Maximum samples to retain (~10 minutes at 60Hz). Older samples are
+    /// dropped to bound memory; analyze() uses the most recent window anyway.
+    private let maxSamples = 36_000
+
     // MARK: - Record
 
     func recordSample(
@@ -77,6 +81,10 @@ final class DefaultSmoothnessAnalyzer: SmoothnessAnalyzer {
             timestamp: timestamp, ap: accelerationAP,
             ml: accelerationML, v: accelerationV
         ))
+        // Cap buffer to prevent unbounded memory growth
+        if samples.count > maxSamples {
+            samples.removeFirst(samples.count - maxSamples)
+        }
     }
 
     // MARK: - Analyze
