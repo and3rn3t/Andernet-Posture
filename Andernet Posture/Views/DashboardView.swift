@@ -22,6 +22,11 @@ struct DashboardView: View {
                     // MARK: - Quick Stats Cards
                     quickStatsSection
 
+                    // MARK: - Clinical Quick Glance
+                    if viewModel.totalSessions > 0 {
+                        clinicalQuickGlance
+                    }
+
                     // MARK: - Posture Score Trend
                     if !viewModel.postureScoreTrend.isEmpty {
                         trendChart(
@@ -32,6 +37,16 @@ struct DashboardView: View {
                         )
                     }
 
+                    // MARK: - Walking Speed Trend
+                    if !viewModel.walkingSpeedTrend.isEmpty {
+                        trendChart(
+                            title: "Walking Speed",
+                            data: viewModel.walkingSpeedTrend,
+                            color: .teal,
+                            unit: "m/s"
+                        )
+                    }
+
                     // MARK: - Cadence Trend
                     if !viewModel.cadenceTrend.isEmpty {
                         trendChart(
@@ -39,6 +54,26 @@ struct DashboardView: View {
                             data: viewModel.cadenceTrend,
                             color: .green,
                             unit: "SPM"
+                        )
+                    }
+
+                    // MARK: - CVA Trend
+                    if !viewModel.cvaTrend.isEmpty {
+                        trendChart(
+                            title: "Craniovertebral Angle",
+                            data: viewModel.cvaTrend,
+                            color: .purple,
+                            unit: "°"
+                        )
+                    }
+
+                    // MARK: - Fall Risk Trend
+                    if !viewModel.fallRiskTrend.isEmpty {
+                        trendChart(
+                            title: "Fall Risk Score",
+                            data: viewModel.fallRiskTrend,
+                            color: .red,
+                            unit: ""
                         )
                     }
 
@@ -90,6 +125,13 @@ struct DashboardView: View {
             )
 
             StatCard(
+                title: "Walking Speed",
+                value: viewModel.walkingSpeedLabel,
+                severity: viewModel.recentWalkingSpeed.map { GaitThresholds.speedSeverity($0) },
+                icon: "speedometer"
+            )
+
+            StatCard(
                 title: "Cadence",
                 value: viewModel.recentCadence.map { String(format: "%.0f SPM", $0) } ?? "—",
                 icon: "metronome.fill"
@@ -102,12 +144,85 @@ struct DashboardView: View {
             )
 
             StatCard(
+                title: "Fall Risk",
+                value: viewModel.fallRiskLabel,
+                severity: fallRiskSeverity,
+                icon: "exclamationmark.triangle.fill"
+            )
+
+            StatCard(
                 title: "Sessions",
                 value: "\(viewModel.totalSessions)",
                 subtitle: viewModel.formattedTotalTime,
                 icon: "clock.fill"
             )
         }
+    }
+
+    // MARK: - Clinical Quick Glance
+
+    @ViewBuilder
+    private var clinicalQuickGlance: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Clinical Insights")
+                .font(.headline)
+
+            LazyVGrid(columns: [
+                GridItem(.flexible()),
+                GridItem(.flexible()),
+                GridItem(.flexible())
+            ], spacing: 10) {
+                if let cva = viewModel.recentCVA {
+                    ClinicalMiniCard(
+                        label: "CVA",
+                        value: String(format: "%.0f°", cva),
+                        severity: PostureThresholds.cvaSeverity(cva)
+                    )
+                }
+
+                if let sym = viewModel.recentGaitSymmetry {
+                    ClinicalMiniCard(
+                        label: "Symmetry",
+                        value: String(format: "%.0f%%", sym),
+                        severity: GaitThresholds.symmetrySeverity(sym)
+                    )
+                }
+
+                if let reba = viewModel.recentRebaScore {
+                    ClinicalMiniCard(
+                        label: "REBA",
+                        value: "\(reba)",
+                        severity: rebaSeverity(reba)
+                    )
+                }
+
+                if let fatigue = viewModel.recentFatigueIndex {
+                    ClinicalMiniCard(
+                        label: "Fatigue",
+                        value: String(format: "%.0f", fatigue),
+                        severity: fatigueSeverity(fatigue)
+                    )
+                }
+
+                if let kendall = viewModel.recentKendallType {
+                    ClinicalMiniCard(
+                        label: "Posture Type",
+                        value: kendallDisplayName(kendall),
+                        severity: kendall == "ideal" ? .normal : .mild
+                    )
+                }
+
+                if let pattern = viewModel.recentGaitPattern {
+                    ClinicalMiniCard(
+                        label: "Gait Pattern",
+                        value: patternDisplayName(pattern),
+                        severity: pattern == "normal" ? .normal : .mild
+                    )
+                }
+            }
+        }
+        .padding()
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
     }
 
     // MARK: - Trend Chart
@@ -140,6 +255,57 @@ struct DashboardView: View {
         .padding()
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
     }
+
+    // MARK: - Helpers
+
+    private var fallRiskSeverity: ClinicalSeverity? {
+        guard let level = viewModel.recentFallRiskLevel else { return nil }
+        switch level {
+        case "low": return .normal
+        case "moderate": return .moderate
+        case "high": return .severe
+        default: return nil
+        }
+    }
+
+    private func rebaSeverity(_ score: Int) -> ClinicalSeverity {
+        switch score {
+        case 1: return .normal
+        case 2...3: return .mild
+        case 4...7: return .moderate
+        default: return .severe
+        }
+    }
+
+    private func fatigueSeverity(_ index: Double) -> ClinicalSeverity {
+        if index < 25 { return .normal }
+        if index < 50 { return .mild }
+        if index < 75 { return .moderate }
+        return .severe
+    }
+
+    private func kendallDisplayName(_ raw: String) -> String {
+        switch raw {
+        case "ideal": return "Ideal"
+        case "kyphosisLordosis": return "Kypho-Lord"
+        case "flatBack": return "Flat Back"
+        case "swayBack": return "Sway Back"
+        default: return raw.capitalized
+        }
+    }
+
+    private func patternDisplayName(_ raw: String) -> String {
+        switch raw {
+        case "normal": return "Normal"
+        case "antalgic": return "Antalgic"
+        case "trendelenburg": return "Trendelenburg"
+        case "festinating": return "Festinating"
+        case "circumduction": return "Circumduction"
+        case "ataxic": return "Ataxic"
+        case "waddling": return "Waddling"
+        default: return raw.capitalized
+        }
+    }
 }
 
 // MARK: - Stat Card
@@ -148,6 +314,7 @@ private struct StatCard: View {
     let title: String
     let value: String
     var score: Double? = nil
+    var severity: ClinicalSeverity? = nil
     var subtitle: String? = nil
     let icon: String
 
@@ -159,6 +326,10 @@ private struct StatCard: View {
                 Spacer()
                 if let score {
                     scoreIndicator(score)
+                } else if let severity {
+                    Circle()
+                        .fill(severityColor(severity))
+                        .frame(width: 10, height: 10)
                 }
             }
 
@@ -196,6 +367,52 @@ private struct StatCard: View {
         case 60..<80: return .yellow
         case 40..<60: return .orange
         default: return .red
+        }
+    }
+
+    private func severityColor(_ severity: ClinicalSeverity) -> Color {
+        switch severity {
+        case .normal: return .green
+        case .mild: return .yellow
+        case .moderate: return .orange
+        case .severe: return .red
+        }
+    }
+}
+
+// MARK: - Clinical Mini Card
+
+private struct ClinicalMiniCard: View {
+    let label: String
+    let value: String
+    let severity: ClinicalSeverity
+
+    var body: some View {
+        VStack(spacing: 4) {
+            Text(value)
+                .font(.system(.callout, design: .rounded).bold())
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+            Text(label)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 8)
+        .padding(.horizontal, 4)
+        .background(severityColor.opacity(0.15), in: RoundedRectangle(cornerRadius: 10))
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .strokeBorder(severityColor.opacity(0.3), lineWidth: 1)
+        )
+    }
+
+    private var severityColor: Color {
+        switch severity {
+        case .normal: return .green
+        case .mild: return .yellow
+        case .moderate: return .orange
+        case .severe: return .red
         }
     }
 }

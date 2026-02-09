@@ -28,10 +28,26 @@ final class DashboardViewModel {
     var totalSessions: Int = 0
     var totalWalkingTime: TimeInterval = 0
 
+    // Clinical metrics (most recent)
+    var recentWalkingSpeed: Double?
+    var recentCVA: Double?
+    var recentFallRiskScore: Double?
+    var recentFallRiskLevel: String?
+    var recentGaitSymmetry: Double?
+    var recentRebaScore: Int?
+    var recentFatigueIndex: Double?
+    var recentKendallType: String?
+    var recentGaitPattern: String?
+    var recentSPARC: Double?
+
     // Trend data for Swift Charts
     var postureScoreTrend: [TrendPoint] = []
     var cadenceTrend: [TrendPoint] = []
     var strideLengthTrend: [TrendPoint] = []
+    var walkingSpeedTrend: [TrendPoint] = []
+    var cvaTrend: [TrendPoint] = []
+    var fallRiskTrend: [TrendPoint] = []
+    var fatigueTrend: [TrendPoint] = []
 
     // Quick posture summary
     var postureLabel: String {
@@ -42,6 +58,16 @@ final class DashboardViewModel {
         case 40..<60: return "Fair"
         default: return "Needs Improvement"
         }
+    }
+
+    var fallRiskLabel: String {
+        guard let level = recentFallRiskLevel else { return "—" }
+        return level.capitalized
+    }
+
+    var walkingSpeedLabel: String {
+        guard let speed = recentWalkingSpeed else { return "—" }
+        return String(format: "%.2f m/s", speed)
     }
 
     var formattedTotalTime: String {
@@ -64,18 +90,43 @@ final class DashboardViewModel {
             recentPostureScore = nil
             recentCadence = nil
             recentStrideLength = nil
+            recentWalkingSpeed = nil
+            recentCVA = nil
+            recentFallRiskScore = nil
+            recentFallRiskLevel = nil
+            recentGaitSymmetry = nil
+            recentRebaScore = nil
+            recentFatigueIndex = nil
+            recentKendallType = nil
+            recentGaitPattern = nil
+            recentSPARC = nil
             totalWalkingTime = 0
             postureScoreTrend = []
             cadenceTrend = []
             strideLengthTrend = []
+            walkingSpeedTrend = []
+            cvaTrend = []
+            fallRiskTrend = []
+            fatigueTrend = []
             return
         }
 
         // Most recent values
         let sorted = sessions.sorted { $0.date > $1.date }
-        recentPostureScore = sorted.first?.postureScore
-        recentCadence = sorted.first?.averageCadenceSPM
-        recentStrideLength = sorted.first?.averageStrideLengthM
+        let latest = sorted.first
+        recentPostureScore = latest?.postureScore
+        recentCadence = latest?.averageCadenceSPM
+        recentStrideLength = latest?.averageStrideLengthM
+        recentWalkingSpeed = latest?.averageWalkingSpeedMPS
+        recentCVA = latest?.averageCVADeg
+        recentFallRiskScore = latest?.fallRiskScore
+        recentFallRiskLevel = latest?.fallRiskLevel
+        recentGaitSymmetry = latest?.gaitAsymmetryPercent
+        recentRebaScore = latest?.rebaScore
+        recentFatigueIndex = latest?.fatigueIndex
+        recentKendallType = latest?.kendallPosturalType
+        recentGaitPattern = latest?.gaitPatternClassification
+        recentSPARC = latest?.sparcScore
 
         totalWalkingTime = sessions.reduce(0) { $0 + $1.duration }
 
@@ -95,6 +146,26 @@ final class DashboardViewModel {
         strideLengthTrend = trendSessions.compactMap { s in
             guard let stride = s.averageStrideLengthM else { return nil }
             return TrendPoint(date: s.date, value: stride)
+        }
+
+        walkingSpeedTrend = trendSessions.compactMap { s in
+            guard let speed = s.averageWalkingSpeedMPS else { return nil }
+            return TrendPoint(date: s.date, value: speed)
+        }
+
+        cvaTrend = trendSessions.compactMap { s in
+            guard let cva = s.averageCVADeg else { return nil }
+            return TrendPoint(date: s.date, value: cva)
+        }
+
+        fallRiskTrend = trendSessions.compactMap { s in
+            guard let risk = s.fallRiskScore else { return nil }
+            return TrendPoint(date: s.date, value: risk)
+        }
+
+        fatigueTrend = trendSessions.compactMap { s in
+            guard let fi = s.fatigueIndex else { return nil }
+            return TrendPoint(date: s.date, value: fi)
         }
     }
 }

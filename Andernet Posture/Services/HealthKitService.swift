@@ -8,6 +8,22 @@
 import Foundation
 import HealthKit
 
+/// User demographics read from HealthKit for normative comparison.
+struct UserDemographics: Sendable {
+    let age: Int?
+    let biologicalSex: HKBiologicalSex?
+    let heightM: Double?
+    let bodyMassKg: Double?
+
+    var isMale: Bool? {
+        switch biologicalSex {
+        case .male: return true
+        case .female: return false
+        default: return nil
+        }
+    }
+}
+
 /// Protocol for HealthKit integration.
 protocol HealthKitService {
     var isAvailable: Bool { get }
@@ -21,6 +37,7 @@ protocol HealthKitService {
         walkingSpeed: Double?,    // m/s
         strideLength: Double?,    // m
         asymmetry: Double?,       // 0–1 (percentage / 100)
+        distance: Double?,        // meters
         start: Date,
         end: Date
     ) async throws
@@ -30,6 +47,12 @@ protocol HealthKitService {
 
     /// Read walking speed samples for a date range.
     func fetchWalkingSpeed(from start: Date, to end: Date) async throws -> [HKQuantitySample]
+
+    /// Read user demographics (age, sex, height, weight) for normative comparison.
+    func fetchDemographics() async throws -> UserDemographics
+
+    /// Read daily step count average over the last N days.
+    func fetchAverageDailySteps(days: Int) async throws -> Double
 }
 
 // MARK: - Default Implementation
@@ -45,11 +68,18 @@ final class DefaultHealthKitService: HealthKitService {
     // MARK: Shared types
 
     private var readTypes: Set<HKObjectType> {
-        let types: [HKQuantityType] = [
-            .init(.stepCount),
-            .init(.walkingSpeed),
-            .init(.walkingStepLength),
-            .init(.walkingAsymmetryPercentage)
+        var types: [HKObjectType] = [
+            HKQuantityType(.stepCount),
+            HKQuantityType(.walkingSpeed),
+            HKQuantityType(.walkingStepLength),
+            HKQuantityType(.walkingAsymmetryPercentage),
+            HKQuantityType(.walkingDoubleSupportPercentage),
+            HKQuantityType(.height),
+            HKQuantityType(.bodyMass),
+            HKQuantityType(.distanceWalkingRunning),
+            HKQuantityType(.sixMinuteWalkTestDistance),
+            HKCharacteristicType(.biologicalSex),
+            HKCharacteristicType(.dateOfBirth),
         ]
         return Set(types)
     }
@@ -58,7 +88,9 @@ final class DefaultHealthKitService: HealthKitService {
         let types: [HKQuantityType] = [
             .init(.stepCount),
             .init(.walkingSpeed),
-            .init(.walkingStepLength)
+            .init(.walkingStepLength),
+            .init(.distanceWalkingRunning),
+            .init(.sixMinuteWalkTestDistance),
         ]
         return Set(types)
     }
@@ -77,6 +109,7 @@ final class DefaultHealthKitService: HealthKitService {
         walkingSpeed: Double?,
         strideLength: Double?,
         asymmetry: Double?,
+        distance: Double?,
         start: Date,
         end: Date
     ) async throws {
@@ -95,6 +128,11 @@ final class DefaultHealthKitService: HealthKitService {
         if let stride = strideLength, stride > 0 {
             let qty = HKQuantity(unit: .meter(), doubleValue: stride)
             samples.append(HKQuantitySample(type: .init(.walkingStepLength), quantity: qty, start: start, end: end))
+        }
+
+        if let dist = distance, dist > 0 {
+            let qty = HKQuantity(unit: .meter(), doubleValue: dist)
+            samples.append(HKQuantitySample(type: .init(.distanceWalkingRunning), quantity: qty, start: start, end: end))
         }
 
         guard !samples.isEmpty else { return }
@@ -141,6 +179,77 @@ final class DefaultHealthKitService: HealthKitService {
             ) { _, samples, error in
                 if let error { cont.resume(throwing: error); return }
                 cont.resume(returning: (samples as? [HKQuantitySample]) ?? [])
+            }
+            store.execute(query)
+        }
+    }
+
+    // MARK: Demographics
+
+    func fetchDemographics() async throws -> UserDemographics {
+        guard isAvailable else {
+            return UserDemographics(age: nil, biologicalSex: nil, heightM: nil, bodyMassKg: nil)
+        }
+
+        // Biological sex
+        let sex: HKBiologicalSex?
+        do {
+            sex = try store.biologicalSex().biologicalSex
+        } catch {
+            sex = nil
+        }
+
+        // Age from date of birth
+        let age: Int?
+        do {
+            let dob = try store.dateOfBirthComponents()
+            if let year = dob.year {
+                let calendar = Calendar.current
+                let now = calendar.dateComponents([.year], from: Date())
+                age = (now.year ?? 0) - year
+            } else {
+                age = nil
+            }
+        } catch {
+            age = nil
+        }
+
+        // Height (most recent)
+        let height = try await fetchMostRecentQuantity(type: .init(.height), unit: .meter())
+
+        // Body mass (most recent)
+        let mass = try await fetchMostRecentQuantity(type: .init(.bodyMass), unit: .gramUnit(with: .kilo))
+
+        return UserDemographics(age: age, biologicalSex: sex, heightM: height, bodyMassKg: mass)
+    }
+
+    // MARK: Daily Steps Average
+
+    func fetchAverageDailySteps(days: Int) async throws -> Double {
+        let calendar = Calendar.current
+        let end = Date()
+        guard let start = calendar.date(byAdding: .day, value: -days, to: end) else { return 0 }
+        let totalSteps = try await fetchSteps(from: start, to: end)
+        return days > 0 ? totalSteps / Double(days) : 0
+    }
+
+    // MARK: Private Helpers
+
+    private func fetchMostRecentQuantity(type: HKQuantityType, unit: HKUnit) async throws -> Double? {
+        let sort = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: false)
+        let predicate = HKQuery.predicateForSamples(withStart: .distantPast, end: .now)
+
+        return try await withCheckedThrowingContinuation { cont in
+            let query = HKSampleQuery(
+                sampleType: type,
+                predicate: predicate,
+                limit: 1,
+                sortDescriptors: [sort]
+            ) { _, samples, error in
+                if let error { cont.resume(throwing: error); return }
+                let value = (samples?.first as? HKQuantitySample)?
+                    .quantity.doubleValue(for: unit)
+                cont.resume(returning: value)
             }
             store.execute(query)
         }

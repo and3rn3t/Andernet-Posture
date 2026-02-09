@@ -15,6 +15,7 @@ struct MainTabView: View {
         case dashboard = "Dashboard"
         case sessions = "Sessions"
         case capture = "Capture"
+        case clinicalTests = "Tests"
         case settings = "Settings"
 
         var icon: String {
@@ -22,6 +23,7 @@ struct MainTabView: View {
             case .dashboard: return "chart.bar.fill"
             case .sessions: return "list.bullet.rectangle.portrait.fill"
             case .capture: return "figure.walk"
+            case .clinicalTests: return "stethoscope"
             case .settings: return "gearshape.fill"
             }
         }
@@ -39,6 +41,10 @@ struct MainTabView: View {
 
             Tab(AppTab.capture.rawValue, systemImage: AppTab.capture.icon, value: .capture) {
                 PostureGaitCaptureView()
+            }
+
+            Tab(AppTab.clinicalTests.rawValue, systemImage: AppTab.clinicalTests.icon, value: .clinicalTests) {
+                ClinicalTestView()
             }
 
             Tab(AppTab.settings.rawValue, systemImage: AppTab.settings.icon, value: .settings) {

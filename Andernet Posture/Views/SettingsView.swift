@@ -13,14 +13,67 @@ struct SettingsView: View {
     @AppStorage("skeletonOverlay") private var skeletonOverlay = true
     @AppStorage("healthKitSync") private var healthKitSync = false
     @AppStorage("samplingRate") private var samplingRate = 60.0
+    @AppStorage("userAge") private var userAge = 0
+    @AppStorage("userSex") private var userSex = "notSet"  // "male", "female", "notSet"
+    @AppStorage("clinicalDisclaimerAccepted") private var disclaimerAccepted = false
+    @AppStorage("showNormativeRanges") private var showNormativeRanges = true
 
     @State private var healthKitService: DefaultHealthKitService? = DefaultHealthKitService()
     @State private var healthKitAuthorized = false
     @State private var showingHealthKitError = false
+    @State private var showingDisclaimer = false
 
     var body: some View {
         NavigationStack {
             Form {
+                // MARK: - Clinical Disclaimer
+                if !disclaimerAccepted {
+                    Section {
+                        Button {
+                            showingDisclaimer = true
+                        } label: {
+                            Label {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Clinical Disclaimer Required")
+                                        .font(.subheadline.bold())
+                                    Text("Please review before using clinical features")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                            } icon: {
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                    .foregroundStyle(.orange)
+                            }
+                        }
+                    }
+                }
+
+                // MARK: - Demographics (Normative Ranges)
+                Section {
+                    Picker("Age Range", selection: $userAge) {
+                        Text("Not Set").tag(0)
+                        Text("20–29").tag(25)
+                        Text("30–39").tag(35)
+                        Text("40–49").tag(45)
+                        Text("50–59").tag(55)
+                        Text("60–69").tag(65)
+                        Text("70–79").tag(75)
+                        Text("80+").tag(85)
+                    }
+
+                    Picker("Biological Sex", selection: $userSex) {
+                        Text("Not Set").tag("notSet")
+                        Text("Male").tag("male")
+                        Text("Female").tag("female")
+                    }
+
+                    Toggle("Show Normative Ranges", systemImage: "chart.bar.doc.horizontal", isOn: $showNormativeRanges)
+                } header: {
+                    Text("Demographics")
+                } footer: {
+                    Text("Age and sex are used to display age-stratified normative ranges for clinical measurements. This data stays on-device.")
+                }
+
                 // MARK: - Capture Settings
                 Section("Capture") {
                     Toggle("Skeleton Overlay", systemImage: "figure.stand", isOn: $skeletonOverlay)
@@ -54,6 +107,40 @@ struct SettingsView: View {
                     }
                 }
 
+                // MARK: - Clinical Tools
+                Section {
+                    NavigationLink {
+                        ClinicalTestView()
+                    } label: {
+                        Label("Clinical Test Protocols", systemImage: "stethoscope")
+                    }
+                } header: {
+                    Text("Clinical Tools")
+                } footer: {
+                    Text("Run guided TUG, Romberg, and 6-Minute Walk protocols.")
+                }
+
+                // MARK: - Disclaimer
+                Section {
+                    Button {
+                        showingDisclaimer = true
+                    } label: {
+                        Label("View Clinical Disclaimer", systemImage: "doc.text.fill")
+                    }
+
+                    if disclaimerAccepted {
+                        HStack {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundStyle(.green)
+                            Text("Disclaimer accepted")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                } header: {
+                    Text("Legal")
+                }
+
                 // MARK: - About
                 Section("About") {
                     LabeledContent("Version") {
@@ -85,6 +172,14 @@ struct SettingsView: View {
         } message: {
             Text("Unable to connect to HealthKit. Please enable access in Settings > Privacy > Health.")
         }
+        .sheet(isPresented: $showingDisclaimer) {
+            ClinicalDisclaimerSheet(isAccepted: $disclaimerAccepted)
+        }
+        .onAppear {
+            if !disclaimerAccepted {
+                showingDisclaimer = true
+            }
+        }
     }
 
     private func requestHealthKit() {
@@ -96,6 +191,106 @@ struct SettingsView: View {
                 showingHealthKitError = true
             }
         }
+    }
+}
+
+// MARK: - Clinical Disclaimer Sheet
+
+struct ClinicalDisclaimerSheet: View {
+    @Binding var isAccepted: Bool
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.system(size: 48))
+                        .foregroundStyle(.orange)
+                        .frame(maxWidth: .infinity)
+
+                    Text("Clinical Disclaimer")
+                        .font(.title.bold())
+                        .frame(maxWidth: .infinity)
+
+                    disclaimerText
+
+                    Divider()
+
+                    Button {
+                        isAccepted = true
+                        dismiss()
+                    } label: {
+                        Text("I Understand and Accept")
+                            .font(.headline)
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+
+                    Button {
+                        dismiss()
+                    } label: {
+                        Text("Cancel")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.large)
+                }
+                .padding()
+            }
+            .navigationTitle("Disclaimer")
+            .navigationBarTitleDisplayMode(.inline)
+        }
+    }
+
+    @ViewBuilder
+    private var disclaimerText: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Group {
+                Text("This application provides posture and gait screening information only.")
+                    .bold()
+
+                Text("It is NOT a medical device and should NOT be used for diagnosis, treatment, or medical decision-making.")
+
+                Text("Key limitations:")
+                    .font(.subheadline.bold())
+                    .padding(.top, 4)
+
+                bulletPoint("Clinical measurements are proxy estimates derived from camera-based body tracking and may differ from gold-standard laboratory instruments.")
+                bulletPoint("ARKit body tracking has inherent accuracy limitations (~5-10° for joint angles) compared to marker-based motion capture systems.")
+                bulletPoint("Postural classification, gait pattern detection, and risk assessments are screening tools only and cannot replace clinical evaluation.")
+                bulletPoint("Fall risk, frailty, and pain risk scores are composite estimates and should not be used as standalone clinical indicators.")
+                bulletPoint("The Fried phenotype frailty screen can assess only 3 of 5 criteria from motion data; a complete assessment requires clinical evaluation.")
+            }
+
+            Group {
+                Text("Always consult a qualified healthcare professional for:")
+                    .font(.subheadline.bold())
+                    .padding(.top, 4)
+
+                bulletPoint("Any concerns about posture, gait, balance, or fall risk")
+                bulletPoint("Interpretation of clinical measurements and risk scores")
+                bulletPoint("Development of exercise or treatment programs")
+                bulletPoint("Musculoskeletal pain or movement disorders")
+            }
+
+            Text("By using this application, you acknowledge that the developers assume no liability for health decisions made based on the app's output.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .padding(.top, 8)
+        }
+    }
+
+    @ViewBuilder
+    private func bulletPoint(_ text: String) -> some View {
+        HStack(alignment: .top, spacing: 8) {
+            Text("•")
+                .font(.body)
+            Text(text)
+                .font(.subheadline)
+        }
+        .padding(.leading, 8)
     }
 }
 

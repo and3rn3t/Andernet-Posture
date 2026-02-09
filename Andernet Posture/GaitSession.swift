@@ -9,15 +9,80 @@ final class GaitSession {
     var averageStrideLengthM: Double?
     var averageTrunkLeanDeg: Double?
 
-    // Extended metrics
+    // Extended posture metrics
     var postureScore: Double?
     var peakTrunkLeanDeg: Double?
     var averageLateralLeanDeg: Double?
     var totalSteps: Int?
 
+    // Clinical posture metrics
+    var averageCVADeg: Double?
+    var averageSVACm: Double?
+    var averageThoracicKyphosisDeg: Double?
+    var averageLumbarLordosisDeg: Double?
+    var averageShoulderAsymmetryCm: Double?
+    var averagePelvicObliquityDeg: Double?
+    var averageCoronalDeviationCm: Double?
+    var kendallPosturalType: String?
+    var nyprScore: Int?
+
+    // Clinical gait metrics
+    var averageWalkingSpeedMPS: Double?
+    var averageStepWidthCm: Double?
+    var gaitAsymmetryPercent: Double?          // Robinson SI
+    var averageStanceTimePercent: Double?
+    var averageSwingTimePercent: Double?
+    var averageDoubleSupportPercent: Double?
+    var strideTimeVariabilityCV: Double?
+
+    // Joint ROM averages
+    var averageHipROMDeg: Double?
+    var averageKneeROMDeg: Double?
+    var trunkRotationRangeDeg: Double?
+    var armSwingAsymmetryPercent: Double?
+
+    // Balance / Sway
+    var averageSwayVelocityMMS: Double?
+    var swayAreaCm2: Double?
+
+    // Fall risk
+    var fallRiskScore: Double?
+    var fallRiskLevel: String?                 // FallRiskLevel raw value
+
+    // Clinical pattern detection
+    var upperCrossedScore: Double?
+    var lowerCrossedScore: Double?
+    var gaitPatternClassification: String?     // GaitPatternType raw value
+
+    // Fatigue
+    var fatigueIndex: Double?
+    var postureVariabilitySD: Double?
+    var postureFatigueTrend: Double?           // regression slope
+
+    // Ergonomic
+    var rebaScore: Int?
+
+    // Smoothness
+    var sparcScore: Double?
+    var harmonicRatio: Double?
+
+    // Frailty
+    var frailtyScore: Int?                     // Fried: 0=robust, 1-2=pre-frail, 3+=frail
+
+    // Cardiovascular / Clinical tests
+    var sixMinuteWalkDistanceM: Double?
+    var tugTimeSec: Double?
+    var rombergRatio: Double?
+    var walkRatio: Double?
+    var estimatedMET: Double?
+
+    // Pain risk alerts (JSON-encoded)
+    @Attribute(.externalStorage) var painRiskAlertsData: Data?
+
     // Full time-series data (JSON-encoded for SwiftData efficiency)
     @Attribute(.externalStorage) var framesData: Data?
     @Attribute(.externalStorage) var stepEventsData: Data?
+    @Attribute(.externalStorage) var motionFramesData: Data?
 
     init(date: Date = .now,
          duration: TimeInterval = 0,
@@ -29,7 +94,8 @@ final class GaitSession {
          averageLateralLeanDeg: Double? = nil,
          totalSteps: Int? = nil,
          framesData: Data? = nil,
-         stepEventsData: Data? = nil) {
+         stepEventsData: Data? = nil,
+         motionFramesData: Data? = nil) {
         self.date = date
         self.duration = duration
         self.averageCadenceSPM = averageCadenceSPM
@@ -41,6 +107,7 @@ final class GaitSession {
         self.totalSteps = totalSteps
         self.framesData = framesData
         self.stepEventsData = stepEventsData
+        self.motionFramesData = motionFramesData
     }
 
     // MARK: - Computed Properties
@@ -57,6 +124,12 @@ final class GaitSession {
         return (try? JSONDecoder().decode([StepEvent].self, from: data)) ?? []
     }
 
+    /// Lazily decode motion frames from stored JSON.
+    var decodedMotionFrames: [MotionFrame] {
+        guard let data = motionFramesData else { return [] }
+        return (try? JSONDecoder().decode([MotionFrame].self, from: data)) ?? []
+    }
+
     /// Encode body frames to JSON data.
     static func encode(frames: [BodyFrame]) -> Data? {
         try? JSONEncoder().encode(frames)
@@ -65,6 +138,11 @@ final class GaitSession {
     /// Encode step events to JSON data.
     static func encode(stepEvents: [StepEvent]) -> Data? {
         try? JSONEncoder().encode(stepEvents)
+    }
+
+    /// Encode motion frames to JSON data.
+    static func encode(motionFrames: [MotionFrame]) -> Data? {
+        try? JSONEncoder().encode(motionFrames)
     }
 
     /// Human-readable duration string.

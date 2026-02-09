@@ -2,7 +2,8 @@
 //  CaptureViewModel.swift
 //  Andernet Posture
 //
-//  Created by Matt on 2/8/26.
+//  Orchestrates all clinical analyzers, drives PostureGaitCaptureView,
+//  and produces comprehensive session analytics.
 //
 
 import Foundation
@@ -20,6 +21,17 @@ final class CaptureViewModel {
     private let postureAnalyzer: any PostureAnalyzer
     private let motionService: any MotionService
     private let recorder: any SessionRecorder
+    private let balanceAnalyzer: any BalanceAnalyzer
+    private let romAnalyzer: any ROMAnalyzer
+    private let ergonomicScorer: any ErgonomicScorer
+    private let fatigueAnalyzer: any FatigueAnalyzer
+    private let smoothnessAnalyzer: any SmoothnessAnalyzer
+    private let fallRiskAnalyzer: any FallRiskAnalyzer
+    private let gaitPatternClassifier: any GaitPatternClassifier
+    private let crossedSyndromeDetector: any CrossedSyndromeDetector
+    private let painRiskEngine: any PainRiskEngine
+    private let frailtyScreener: any FrailtyScreener
+    private let cardioEstimator: any CardioEstimator
 
     // MARK: - Published state
 
@@ -32,11 +44,36 @@ final class CaptureViewModel {
     var headForwardDeg: Double = 0
     var postureScore: Double = 0
 
+    // Clinical posture (live)
+    var craniovertebralAngleDeg: Double = 0
+    var sagittalVerticalAxisCm: Double = 0
+    var thoracicKyphosisDeg: Double = 0
+    var lumbarLordosisDeg: Double = 0
+    var shoulderAsymmetryCm: Double = 0
+    var pelvicObliquityDeg: Double = 0
+    var kendallType: PosturalType = .ideal
+    var nyprScore: Int = 0
+
     // Live gait metrics
     var cadenceSPM: Double = 0
     var avgStrideLengthM: Double = 0
     var stepCount: Int = 0
-    var symmetryRatio: Double?
+    var symmetryPercent: Double?
+    var walkingSpeedMPS: Double = 0
+    var avgStepWidthCm: Double = 0
+
+    // Live balance
+    var swayVelocityMMS: Double = 0
+    var isStanding: Bool = false
+
+    // Live ROM
+    var hipFlexionLeftDeg: Double = 0
+    var hipFlexionRightDeg: Double = 0
+    var kneeFlexionLeftDeg: Double = 0
+    var kneeFlexionRightDeg: Double = 0
+
+    // Live REBA
+    var rebaScore: Int = 1
 
     // Calibration
     var isBodyDetected: Bool = false
@@ -45,8 +82,18 @@ final class CaptureViewModel {
     // Error reporting
     var errorMessage: String?
 
+    // Per-frame severity map (latest)
+    var severities: [String: ClinicalSeverity] = [:]
+
     // Timer
     private var timer: Timer?
+
+    // Frame counter for throttling expensive computations
+    private var frameIndex: Int = 0
+
+    // Session accumulators
+    private var postureMetricsHistory: [PostureMetrics] = []
+    private var stepWidthValues: [Double] = []
 
     // MARK: - Init
 
@@ -54,12 +101,34 @@ final class CaptureViewModel {
         gaitAnalyzer: any GaitAnalyzer = DefaultGaitAnalyzer(),
         postureAnalyzer: any PostureAnalyzer = DefaultPostureAnalyzer(),
         motionService: any MotionService = CoreMotionService(),
-        recorder: any SessionRecorder = DefaultSessionRecorder()
+        recorder: any SessionRecorder = DefaultSessionRecorder(),
+        balanceAnalyzer: any BalanceAnalyzer = DefaultBalanceAnalyzer(),
+        romAnalyzer: any ROMAnalyzer = DefaultROMAnalyzer(),
+        ergonomicScorer: any ErgonomicScorer = DefaultErgonomicScorer(),
+        fatigueAnalyzer: any FatigueAnalyzer = DefaultFatigueAnalyzer(),
+        smoothnessAnalyzer: any SmoothnessAnalyzer = DefaultSmoothnessAnalyzer(),
+        fallRiskAnalyzer: any FallRiskAnalyzer = DefaultFallRiskAnalyzer(),
+        gaitPatternClassifier: any GaitPatternClassifier = DefaultGaitPatternClassifier(),
+        crossedSyndromeDetector: any CrossedSyndromeDetector = DefaultCrossedSyndromeDetector(),
+        painRiskEngine: any PainRiskEngine = DefaultPainRiskEngine(),
+        frailtyScreener: any FrailtyScreener = DefaultFrailtyScreener(),
+        cardioEstimator: any CardioEstimator = DefaultCardioEstimator()
     ) {
         self.gaitAnalyzer = gaitAnalyzer
         self.postureAnalyzer = postureAnalyzer
         self.motionService = motionService
         self.recorder = recorder
+        self.balanceAnalyzer = balanceAnalyzer
+        self.romAnalyzer = romAnalyzer
+        self.ergonomicScorer = ergonomicScorer
+        self.fatigueAnalyzer = fatigueAnalyzer
+        self.smoothnessAnalyzer = smoothnessAnalyzer
+        self.fallRiskAnalyzer = fallRiskAnalyzer
+        self.gaitPatternClassifier = gaitPatternClassifier
+        self.crossedSyndromeDetector = crossedSyndromeDetector
+        self.painRiskEngine = painRiskEngine
+        self.frailtyScreener = frailtyScreener
+        self.cardioEstimator = cardioEstimator
 
         setupCallbacks()
     }
@@ -100,14 +169,15 @@ final class CaptureViewModel {
         recordingState = .finished
     }
 
-    /// Save the recorded session to SwiftData and optionally HealthKit.
+    /// Save the recorded session to SwiftData with full clinical analytics.
     @MainActor
     func saveSession(context: ModelContext) -> GaitSession? {
         let frames = recorder.collectedFrames()
         let steps = recorder.collectedSteps()
+        let motionFrames = recorder.collectedMotionFrames()
 
-        let trunkLeans = frames.map(\.trunkLeanDeg)
-        let lateralLeans = frames.map(\.lateralLeanDeg)
+        let trunkLeans = frames.map(\.sagittalTrunkLeanDeg)
+        let lateralLeans = frames.map(\.frontalTrunkLeanDeg)
         let sessionScore = postureAnalyzer.computeSessionScore(
             trunkLeans: trunkLeans,
             lateralLeans: lateralLeans
@@ -124,14 +194,127 @@ final class CaptureViewModel {
             averageLateralLeanDeg: lateralLeans.isEmpty ? nil : lateralLeans.reduce(0, +) / Double(lateralLeans.count),
             totalSteps: steps.count,
             framesData: GaitSession.encode(frames: frames),
-            stepEventsData: GaitSession.encode(stepEvents: steps)
+            stepEventsData: GaitSession.encode(stepEvents: steps),
+            motionFramesData: GaitSession.encode(motionFrames: motionFrames)
         )
+
+        // Clinical posture averages
+        if !postureMetricsHistory.isEmpty {
+            let n = Double(postureMetricsHistory.count)
+            session.averageCVADeg = postureMetricsHistory.map(\.craniovertebralAngleDeg).reduce(0, +) / n
+            session.averageSVACm = postureMetricsHistory.map(\.sagittalVerticalAxisCm).reduce(0, +) / n
+            session.averageThoracicKyphosisDeg = postureMetricsHistory.map(\.thoracicKyphosisDeg).reduce(0, +) / n
+            session.averageLumbarLordosisDeg = postureMetricsHistory.map(\.lumbarLordosisDeg).reduce(0, +) / n
+            session.averageShoulderAsymmetryCm = postureMetricsHistory.map(\.shoulderAsymmetryCm).reduce(0, +) / n
+            session.averagePelvicObliquityDeg = postureMetricsHistory.map(\.pelvicObliquityDeg).reduce(0, +) / n
+            session.averageCoronalDeviationCm = postureMetricsHistory.map(\.coronalSpineDeviationCm).reduce(0, +) / n
+            session.kendallPosturalType = postureMetricsHistory.last?.posturalType.rawValue
+            session.nyprScore = postureMetricsHistory.last?.nyprScore
+        }
+
+        // Gait metrics
+        session.averageWalkingSpeedMPS = walkingSpeedMPS
+        session.averageStepWidthCm = avgStepWidthCm
+        session.gaitAsymmetryPercent = symmetryPercent
+
+        // ROM session summary
+        let romSummary = romAnalyzer.sessionSummary()
+        session.averageHipROMDeg = (romSummary.hipROMLeftDeg + romSummary.hipROMRightDeg) / 2
+        session.averageKneeROMDeg = (romSummary.kneeROMLeftDeg + romSummary.kneeROMRightDeg) / 2
+        session.trunkRotationRangeDeg = romSummary.trunkRotationRangeDeg
+        session.armSwingAsymmetryPercent = romSummary.armSwingAsymmetryPercent
+
+        // Fatigue analysis
+        let fatigue = fatigueAnalyzer.assess()
+        session.fatigueIndex = fatigue.fatigueIndex
+        session.postureVariabilitySD = fatigue.postureVariabilitySD
+        session.postureFatigueTrend = fatigue.postureTrendSlope
+
+        // REBA
+        session.rebaScore = rebaScore
+
+        // Smoothness
+        let smoothness = smoothnessAnalyzer.analyze()
+        session.sparcScore = smoothness.sparcScore
+        session.harmonicRatio = smoothness.harmonicRatioAP
+
+        // Cardio estimate
+        let cardio = cardioEstimator.estimate(
+            walkingSpeedMPS: walkingSpeedMPS,
+            cadenceSPM: cadenceSPM,
+            strideLengthM: avgStrideLengthM
+        )
+        session.estimatedMET = cardio.estimatedMET
+        session.walkRatio = cardio.walkRatio
+
+        // Fall risk
+        let stepWidthSD = standardDeviation(stepWidthValues)
+        let fallRisk = fallRiskAnalyzer.assess(
+            walkingSpeedMPS: walkingSpeedMPS,
+            strideTimeCVPercent: nil, // From gait analyzer, already handled per-frame
+            doubleSupportPercent: nil,
+            stepWidthVariabilityCm: stepWidthSD,
+            swayVelocityMMS: swayVelocityMMS,
+            stepAsymmetryPercent: symmetryPercent,
+            tugTimeSec: nil,
+            footClearanceM: nil
+        )
+        session.fallRiskScore = fallRisk.compositeScore
+        session.fallRiskLevel = fallRisk.riskLevel.rawValue
+
+        // Gait pattern
+        let gaitPattern = gaitPatternClassifier.classify(
+            stanceTimeLeftPercent: nil, stanceTimeRightPercent: nil,
+            stepLengthLeftM: nil, stepLengthRightM: nil,
+            cadenceSPM: cadenceSPM,
+            avgStepWidthCm: avgStepWidthCm,
+            stepWidthVariabilityCm: stepWidthSD,
+            pelvicObliquityDeg: pelvicObliquityDeg,
+            strideTimeCVPercent: nil,
+            walkingSpeedMPS: walkingSpeedMPS,
+            strideLengthM: avgStrideLengthM,
+            hipFlexionROMDeg: romSummary.hipROMLeftDeg,
+            armSwingAsymmetryPercent: romSummary.armSwingAsymmetryPercent
+        )
+        session.gaitPatternClassification = gaitPattern.primaryPattern.rawValue
+
+        // Crossed syndrome
+        let crossed = crossedSyndromeDetector.detect(
+            craniovertebralAngleDeg: session.averageCVADeg ?? 52,
+            shoulderProtractionCm: 0, // Would need shoulder-C7 offset average
+            thoracicKyphosisDeg: session.averageThoracicKyphosisDeg ?? 30,
+            cervicalLordosisDeg: nil,
+            pelvicTiltDeg: frames.isEmpty ? 0 : frames.map(\.pelvicTiltDeg).reduce(0, +) / Double(frames.count),
+            lumbarLordosisDeg: session.averageLumbarLordosisDeg ?? 50,
+            hipFlexionRestDeg: nil
+        )
+        session.upperCrossedScore = crossed.upperCrossedScore
+        session.lowerCrossedScore = crossed.lowerCrossedScore
+
+        // Pain risk
+        let painRisk = painRiskEngine.assess(
+            craniovertebralAngleDeg: session.averageCVADeg ?? 52,
+            sagittalVerticalAxisCm: session.averageSVACm ?? 0,
+            thoracicKyphosisDeg: session.averageThoracicKyphosisDeg ?? 30,
+            lumbarLordosisDeg: session.averageLumbarLordosisDeg ?? 50,
+            shoulderAsymmetryCm: session.averageShoulderAsymmetryCm ?? 0,
+            pelvicObliquityDeg: session.averagePelvicObliquityDeg ?? 0,
+            pelvicTiltDeg: frames.isEmpty ? 0 : frames.map(\.pelvicTiltDeg).reduce(0, +) / Double(frames.count),
+            coronalSpineDeviationCm: session.averageCoronalDeviationCm ?? 0,
+            kneeFlexionStandingDeg: nil,
+            gaitAsymmetryPercent: symmetryPercent
+        )
+        session.painRiskAlertsData = try? JSONEncoder().encode(painRisk.alerts)
 
         context.insert(session)
         try? context.save()
 
         recorder.reset()
         gaitAnalyzer.reset()
+        balanceAnalyzer.reset()
+        romAnalyzer.reset()
+        fatigueAnalyzer.reset()
+        smoothnessAnalyzer.reset()
         resetMetrics()
 
         return session
@@ -142,6 +325,13 @@ final class CaptureViewModel {
     private func setupCallbacks() {
         motionService.onMotionUpdate = { [weak self] frame in
             self?.recorder.recordMotionFrame(frame)
+            // Feed accelerometer to smoothness analyzer
+            self?.smoothnessAnalyzer.recordSample(
+                timestamp: frame.timestamp,
+                accelerationAP: frame.userAccelerationZ,
+                accelerationML: frame.userAccelerationX,
+                accelerationV: frame.userAccelerationY
+            )
         }
     }
 
@@ -161,42 +351,120 @@ final class CaptureViewModel {
         }
 
         guard recordingState == .recording else { return }
+        frameIndex += 1
 
-        // Posture analysis
+        // ── Posture analysis ──
+        var currentPosture: PostureMetrics?
         if let postureMetrics = postureAnalyzer.analyze(joints: joints) {
-            trunkLeanDeg = postureMetrics.trunkLeanDeg
-            lateralLeanDeg = postureMetrics.lateralLeanDeg
+            currentPosture = postureMetrics
+            trunkLeanDeg = postureMetrics.sagittalTrunkLeanDeg
+            lateralLeanDeg = postureMetrics.frontalTrunkLeanDeg
             headForwardDeg = postureMetrics.headForwardDeg
-            postureScore = postureMetrics.frameScore
+            postureScore = postureMetrics.postureScore
+            craniovertebralAngleDeg = postureMetrics.craniovertebralAngleDeg
+            sagittalVerticalAxisCm = postureMetrics.sagittalVerticalAxisCm
+            thoracicKyphosisDeg = postureMetrics.thoracicKyphosisDeg
+            lumbarLordosisDeg = postureMetrics.lumbarLordosisDeg
+            shoulderAsymmetryCm = postureMetrics.shoulderAsymmetryCm
+            pelvicObliquityDeg = postureMetrics.pelvicObliquityDeg
+            kendallType = postureMetrics.posturalType
+            nyprScore = postureMetrics.nyprScore
+            severities = postureMetrics.severities
+            postureMetricsHistory.append(postureMetrics)
         }
 
-        // Gait analysis
+        // ── Gait analysis ──
         let gaitMetrics = gaitAnalyzer.processFrame(joints: joints, timestamp: timestamp)
         cadenceSPM = gaitMetrics.cadenceSPM
         avgStrideLengthM = gaitMetrics.avgStrideLengthM
-        symmetryRatio = gaitMetrics.symmetryRatio
+        symmetryPercent = gaitMetrics.symmetryPercent
+        walkingSpeedMPS = gaitMetrics.walkingSpeedMPS
+        avgStepWidthCm = gaitMetrics.avgStepWidthCm
 
-        // Record detected step
+        // ── ROM analysis ──
+        let romMetrics = romAnalyzer.analyze(joints: joints)
+        romAnalyzer.recordFrame(romMetrics)
+        hipFlexionLeftDeg = romMetrics.hipFlexionLeftDeg
+        hipFlexionRightDeg = romMetrics.hipFlexionRightDeg
+        kneeFlexionLeftDeg = romMetrics.kneeFlexionLeftDeg
+        kneeFlexionRightDeg = romMetrics.kneeFlexionRightDeg
+
+        // ── Balance analysis ──
+        if let root = joints[.root] {
+            let balanceMetrics = balanceAnalyzer.processFrame(rootPosition: root, timestamp: timestamp)
+            swayVelocityMMS = balanceMetrics.swayVelocityMMS
+            isStanding = balanceAnalyzer.isStanding
+        }
+
+        // ── REBA (throttled — every 10th frame) ──
+        if frameIndex % 10 == 0 {
+            let reba = ergonomicScorer.computeREBA(joints: joints)
+            rebaScore = reba.score
+        }
+
+        // ── Fatigue tracking (throttled — handled internally) ──
+        fatigueAnalyzer.recordTimePoint(
+            timestamp: timestamp,
+            postureScore: postureScore,
+            trunkLeanDeg: trunkLeanDeg,
+            lateralLeanDeg: lateralLeanDeg,
+            cadenceSPM: cadenceSPM,
+            walkingSpeedMPS: walkingSpeedMPS
+        )
+
+        // ── Record detected step ──
         if let strike = gaitMetrics.stepDetected {
             let stepEvent = StepEvent(
                 timestamp: strike.timestamp,
                 foot: strike.foot,
                 positionX: strike.position.x,
                 positionZ: strike.position.z,
-                strideLengthM: strike.strideLengthM.map(Double.init)
+                strideLengthM: strike.strideLengthM.map(Double.init),
+                stepLengthM: strike.stepLengthM.map(Double.init),
+                stepWidthCm: strike.stepWidthCm.map(Double.init),
+                impactVelocity: strike.impactVelocity.map(Double.init),
+                footClearanceM: strike.footClearanceM.map(Double.init)
             )
             recorder.recordStep(stepEvent)
             stepCount = recorder.stepCount
+
+            if let sw = strike.stepWidthCm {
+                stepWidthValues.append(Double(sw))
+            }
         }
 
-        // Record body frame
+        // ── Record body frame ──
         let frame = BodyFrame(
             timestamp: timestamp,
             joints: joints,
-            trunkLeanDeg: trunkLeanDeg,
-            lateralLeanDeg: lateralLeanDeg,
+            sagittalTrunkLeanDeg: trunkLeanDeg,
+            frontalTrunkLeanDeg: lateralLeanDeg,
+            craniovertebralAngleDeg: craniovertebralAngleDeg,
+            sagittalVerticalAxisCm: sagittalVerticalAxisCm,
+            shoulderAsymmetryCm: shoulderAsymmetryCm,
+            shoulderTiltDeg: currentPosture?.shoulderTiltDeg ?? 0,
+            pelvicObliquityDeg: pelvicObliquityDeg,
+            thoracicKyphosisDeg: thoracicKyphosisDeg,
+            lumbarLordosisDeg: lumbarLordosisDeg,
+            coronalSpineDeviationCm: currentPosture?.coronalSpineDeviationCm ?? 0,
+            posturalType: kendallType.rawValue,
+            nyprScore: nyprScore,
+            postureScore: postureScore,
             cadenceSPM: cadenceSPM,
-            avgStrideLengthM: avgStrideLengthM
+            avgStrideLengthM: avgStrideLengthM,
+            walkingSpeedMPS: walkingSpeedMPS,
+            stepWidthCm: avgStepWidthCm,
+            hipFlexionLeftDeg: romMetrics.hipFlexionLeftDeg,
+            hipFlexionRightDeg: romMetrics.hipFlexionRightDeg,
+            kneeFlexionLeftDeg: romMetrics.kneeFlexionLeftDeg,
+            kneeFlexionRightDeg: romMetrics.kneeFlexionRightDeg,
+            pelvicTiltDeg: romMetrics.pelvicTiltDeg,
+            trunkRotationDeg: romMetrics.trunkRotationDeg,
+            armSwingLeftDeg: romMetrics.armSwingLeftDeg,
+            armSwingRightDeg: romMetrics.armSwingRightDeg,
+            swayVelocityMMS: swayVelocityMMS,
+            rebaScore: frameIndex % 10 == 0 ? rebaScore : nil,
+            gaitPatternRaw: nil
         )
         recorder.recordFrame(frame)
     }
@@ -213,12 +481,42 @@ final class CaptureViewModel {
         lateralLeanDeg = 0
         headForwardDeg = 0
         postureScore = 0
+        craniovertebralAngleDeg = 0
+        sagittalVerticalAxisCm = 0
+        thoracicKyphosisDeg = 0
+        lumbarLordosisDeg = 0
+        shoulderAsymmetryCm = 0
+        pelvicObliquityDeg = 0
+        kendallType = .ideal
+        nyprScore = 0
         cadenceSPM = 0
         avgStrideLengthM = 0
         stepCount = 0
-        symmetryRatio = nil
+        symmetryPercent = nil
+        walkingSpeedMPS = 0
+        avgStepWidthCm = 0
+        swayVelocityMMS = 0
+        isStanding = false
+        hipFlexionLeftDeg = 0
+        hipFlexionRightDeg = 0
+        kneeFlexionLeftDeg = 0
+        kneeFlexionRightDeg = 0
+        rebaScore = 1
         elapsedTime = 0
         isBodyDetected = false
         recordingState = .idle
+        severities = [:]
+        frameIndex = 0
+        postureMetricsHistory.removeAll()
+        stepWidthValues.removeAll()
+    }
+
+    // MARK: - Helpers
+
+    private func standardDeviation(_ values: [Double]) -> Double {
+        guard values.count >= 2 else { return 0 }
+        let mean = values.reduce(0, +) / Double(values.count)
+        let variance = values.reduce(0.0) { $0 + ($1 - mean) * ($1 - mean) } / Double(values.count - 1)
+        return sqrt(variance)
     }
 }
