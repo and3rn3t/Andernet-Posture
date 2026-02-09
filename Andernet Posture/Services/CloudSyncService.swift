@@ -54,6 +54,11 @@ final class CloudSyncService {
     private(set) var status: SyncStatus = .idle
     private(set) var lastSyncDate: Date?
 
+    /// Number of consecutive transient errors — used to decide
+    /// whether to stay in "Syncing" or flip to "failed".
+    private var consecutiveTransientErrors = 0
+    private static let maxTransientRetries = 5
+
     private var cancellables = Set<AnyCancellable>()
 
     init() {
@@ -63,9 +68,6 @@ final class CloudSyncService {
     // MARK: - CloudKit Event Monitoring
 
     private func startObservingCloudKitEvents() {
-        // NSPersistentCloudKitContainer posts these notifications for every
-        // import/export/setup event. SwiftData's CloudKit integration uses
-        // the same underlying container, so we receive them automatically.
         NotificationCenter.default.publisher(
             for: NSPersistentCloudKitContainer.eventChangedNotification
         )
@@ -77,9 +79,6 @@ final class CloudSyncService {
     }
 
     nonisolated private func handleCloudKitEvent(_ notification: Notification) {
-        // The event is packed in userInfo under the key
-        // "NSPersistentCloudKitContainer.eventNotificationUserInfoKey"
-        // We use the event's type and endDate to determine status.
         guard let event = notification.userInfo?[NSPersistentCloudKitContainer.eventNotificationUserInfoKey]
                 as? NSPersistentCloudKitContainer.Event else {
             logger.debug("Received cloud event notification without parseable event.")
@@ -92,17 +91,111 @@ final class CloudSyncService {
             if event.endDate == nil {
                 // Event is in progress
                 self.status = .syncing
-                logger.info("CloudKit sync started: \(String(describing: event.type))")
+                logger.info("CloudKit sync started: type=\(String(describing: event.type))")
             } else if let error = event.error {
-                self.status = .failed(error.localizedDescription)
-                logger.error("CloudKit sync error: \(error.localizedDescription)")
+                self.handleSyncError(error, eventType: event.type)
             } else {
+                // Success — reset transient counter
+                self.consecutiveTransientErrors = 0
                 let now = Date.now
                 self.status = .succeeded(now)
                 self.lastSyncDate = now
-                logger.info("CloudKit sync completed: \(String(describing: event.type))")
+                logger.info("CloudKit sync completed: type=\(String(describing: event.type))")
             }
         }
+    }
+
+    // MARK: - Error Classification
+
+    /// Classify the error and decide whether to show a user-facing failure
+    /// or treat it as transient (the container will retry automatically).
+    private func handleSyncError(_ error: Error, eventType: NSPersistentCloudKitContainer.EventType) {
+        let nsError = error as NSError
+        let code = nsError.code
+        let domain = nsError.domain
+
+        // Log full details for debugging
+        logger.error("""
+        CloudKit sync error — domain=\(domain) code=\(code) \
+        type=\(String(describing: eventType)) \
+        description=\(nsError.localizedDescription) \
+        underlying=\(String(describing: nsError.userInfo[NSUnderlyingErrorKey]))
+        """)
+
+        // Determine if this is transient
+        let isTransient: Bool
+        if domain == CKError.errorDomain {
+            isTransient = Self.isTransientCKErrorCode(code)
+        } else {
+            // CoreData / NSPersistentCloudKitContainer internal errors
+            // often wrap transient CK errors in the underlying-error chain
+            isTransient = Self.containsTransientCKError(nsError)
+        }
+
+        if isTransient {
+            consecutiveTransientErrors += 1
+            if consecutiveTransientErrors <= Self.maxTransientRetries {
+                // Stay in "syncing" — the container retries automatically
+                status = .syncing
+                logger.info("Transient sync error (\(self.consecutiveTransientErrors)/\(Self.maxTransientRetries)), will retry automatically.")
+                return
+            }
+        }
+
+        // Permanent or too many transient retries — show user-friendly message
+        status = .failed(Self.friendlyMessage(domain: domain, code: code))
+    }
+
+    /// Whether a CKError code represents a transient/retryable condition.
+    private static func isTransientCKErrorCode(_ code: Int) -> Bool {
+        switch CKError.Code(rawValue: code) {
+        case .partialFailure,
+             .networkUnavailable,
+             .networkFailure,
+             .serviceUnavailable,
+             .zoneBusy,
+             .requestRateLimited:
+            return true
+        default:
+            return false
+        }
+    }
+
+    /// Walk the `NSUnderlyingError` chain looking for a transient CKError.
+    private static func containsTransientCKError(_ error: NSError) -> Bool {
+        var current: NSError? = error
+        while let err = current {
+            if err.domain == CKError.errorDomain, isTransientCKErrorCode(err.code) {
+                return true
+            }
+            current = err.userInfo[NSUnderlyingErrorKey] as? NSError
+        }
+        return false
+    }
+
+    /// Map raw error codes to short, actionable messages.
+    private static func friendlyMessage(domain: String, code: Int) -> String {
+        if domain == CKError.errorDomain {
+            switch CKError.Code(rawValue: code) {
+            case .notAuthenticated:
+                return String(localized: "Sign in to iCloud in Settings")
+            case .networkUnavailable, .networkFailure:
+                return String(localized: "No network connection")
+            case .quotaExceeded:
+                return String(localized: "iCloud storage full")
+            case .badContainer, .missingEntitlement:
+                return String(localized: "iCloud configuration error")
+            case .incompatibleVersion:
+                return String(localized: "Update the app to sync")
+            case .partialFailure:
+                return String(localized: "Sync partially failed — retrying")
+            case .serviceUnavailable, .zoneBusy, .requestRateLimited:
+                return String(localized: "iCloud busy — will retry")
+            default:
+                return String(localized: "Sync error (\(code))")
+            }
+        }
+        return String(localized: "Sync error (\(code))")
     }
 
     // MARK: - Account Availability
