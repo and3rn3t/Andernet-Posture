@@ -405,25 +405,159 @@ extension DashboardView {
 
     @ViewBuilder
     private func insightCard(_ insight: Insight) -> some View {
-        SectionCard(accentColor: AppColors.severityColor(for: insight.severity)) {
-            HStack(alignment: .top, spacing: AppSpacing.md) {
-                Image(systemName: insight.icon)
-                    .font(.title3)
-                    .foregroundStyle(AppColors.severityColor(for: insight.severity))
-                    .frame(width: 32)
+        let card = SectionCard(accentColor: AppColors.severityColor(for: insight.severity)) {
+            VStack(alignment: .leading, spacing: AppSpacing.sm) {
+                HStack(alignment: .top, spacing: AppSpacing.md) {
+                    Image(systemName: insight.icon)
+                        .font(.title3)
+                        .foregroundStyle(AppColors.severityColor(for: insight.severity))
+                        .frame(width: 32)
 
-                VStack(alignment: .leading, spacing: AppSpacing.xs) {
-                    Text(insight.title)
-                        .font(.subheadline.bold())
-                    Text(insight.body)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
+                    VStack(alignment: .leading, spacing: AppSpacing.xs) {
+                        Text(insight.title)
+                            .font(.subheadline.bold())
+                        Text(insight.body)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+
+                    Spacer(minLength: 0)
                 }
 
-                Spacer(minLength: 0)
+                // Exercise recommendation teaser
+                if insight.hasExercises {
+                    Divider()
+
+                    ExerciseTeaser(exercises: insight.exercises, insightTitle: insight.title)
+                }
             }
         }
+
+        if insight.hasExercises {
+            card
+                .accessibilityHint("Contains \(insight.exercises.count) recommended exercises. Double tap to view.")
+        } else {
+            card
+        }
+    }
+}
+
+// MARK: - Exercise Teaser (inline in insight card)
+
+/// Compact preview of exercises embedded in an insight card, with a button to see full details.
+private struct ExerciseTeaser: View {
+    let exercises: [ExerciseRecommendation]
+    let insightTitle: String
+    @State private var showExercises = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: AppSpacing.sm) {
+            // Show up to 3 exercise names as compact pills
+            FlowLayout(spacing: AppSpacing.xs) {
+                ForEach(exercises.prefix(3)) { exercise in
+                    HStack(spacing: 4) {
+                        Image(systemName: exercise.icon)
+                            .font(.system(size: 10))
+                        Text(exercise.name)
+                            .font(.caption2.weight(.medium))
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(.tint.opacity(0.08), in: Capsule())
+                    .foregroundStyle(.tint)
+                }
+
+                if exercises.count > 3 {
+                    Text("+\(exercises.count - 3) more")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                }
+            }
+
+            Button {
+                showExercises = true
+            } label: {
+                HStack(spacing: AppSpacing.xs) {
+                    Image(systemName: "figure.strengthtraining.traditional")
+                        .font(.caption)
+                    Text("View \(exercises.count) Recommended Exercise\(exercises.count == 1 ? "" : "s")")
+                        .font(.caption.weight(.semibold))
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.caption2)
+                }
+                .padding(.vertical, AppSpacing.sm)
+                .padding(.horizontal, AppSpacing.md)
+                .background(.tint.opacity(0.08), in: RoundedRectangle(cornerRadius: AppRadius.small))
+            }
+            .buttonStyle(.plain)
+        }
+        .sheet(isPresented: $showExercises) {
+            ExerciseListView(
+                title: insightTitle,
+                exercises: exercises
+            )
+        }
+    }
+}
+
+// MARK: - FlowLayout (for exercise pills)
+
+/// Simple horizontal flow layout that wraps items to the next line.
+private struct FlowLayout: Layout {
+    var spacing: CGFloat = 8
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let result = layout(proposal: proposal, subviews: subviews)
+        return result.size
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        let result = layout(proposal: proposal, subviews: subviews)
+        for (index, subview) in subviews.enumerated() {
+            guard index < result.positions.count else { break }
+            subview.place(at: CGPoint(
+                x: bounds.minX + result.positions[index].x,
+                y: bounds.minY + result.positions[index].y
+            ), proposal: .unspecified)
+        }
+    }
+
+    private struct LayoutResult {
+        var size: CGSize
+        var positions: [CGPoint]
+    }
+
+    private func layout(proposal: ProposedViewSize, subviews: Subviews) -> LayoutResult {
+        let maxWidth = proposal.width ?? .infinity
+        var positions: [CGPoint] = []
+        var currentX: CGFloat = 0
+        var currentY: CGFloat = 0
+        var lineHeight: CGFloat = 0
+        var totalWidth: CGFloat = 0
+
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+
+            if currentX + size.width > maxWidth && currentX > 0 {
+                currentX = 0
+                currentY += lineHeight + spacing
+                lineHeight = 0
+            }
+
+            positions.append(CGPoint(x: currentX, y: currentY))
+            lineHeight = max(lineHeight, size.height)
+            currentX += size.width + spacing
+            totalWidth = max(totalWidth, currentX - spacing)
+        }
+
+        return LayoutResult(
+            size: CGSize(width: totalWidth, height: currentY + lineHeight),
+            positions: positions
+        )
     }
 }
 

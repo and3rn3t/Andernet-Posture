@@ -31,6 +31,7 @@ struct Insight: Identifiable, Sendable {
     let body: String
     let severity: ClinicalSeverity
     let category: InsightCategory
+    let exercises: [ExerciseRecommendation]
 
     init(
         id: UUID = UUID(),
@@ -38,7 +39,8 @@ struct Insight: Identifiable, Sendable {
         title: String,
         body: String,
         severity: ClinicalSeverity,
-        category: InsightCategory
+        category: InsightCategory,
+        exercises: [ExerciseRecommendation] = []
     ) {
         self.id = id
         self.icon = icon
@@ -46,7 +48,11 @@ struct Insight: Identifiable, Sendable {
         self.body = body
         self.severity = severity
         self.category = category
+        self.exercises = exercises
     }
+
+    /// Whether this insight has actionable exercise recommendations.
+    var hasExercises: Bool { !exercises.isEmpty }
 }
 
 // MARK: - InsightsEngine Protocol
@@ -119,6 +125,26 @@ final class DefaultInsightsEngine: InsightsEngine {
             insights.append(insight)
         }
 
+        // 11. SVA / Sagittal imbalance
+        if let insight = svaInsight(sorted) {
+            insights.append(insight)
+        }
+
+        // 12. Thoracic kyphosis
+        if let insight = kyphosisInsight(sorted) {
+            insights.append(insight)
+        }
+
+        // 13. Shoulder / Pelvic asymmetry
+        if let insight = asymmetryInsight(sorted) {
+            insights.append(insight)
+        }
+
+        // 14. Trunk forward lean
+        if let insight = trunkLeanInsight(sorted) {
+            insights.append(insight)
+        }
+
         AppLogger.analysis.debug("InsightsEngine generated \(insights.count) insights from \(sessions.count) sessions")
         return filterContradictions(insights)
     }
@@ -176,9 +202,10 @@ final class DefaultInsightsEngine: InsightsEngine {
         return Insight(
             icon: improved ? "arrow.up.right.circle.fill" : "arrow.down.right.circle.fill",
             title: improved ? "Posture Improving" : "Posture Declining",
-            body: "Your posture score \(improved ? "improved" : "declined") \(pct)% this week compared to the previous week.",
+            body: "Your posture score \(improved ? "improved" : "declined") \(pct)% this week compared to the previous week.\(improved ? "" : " Try the exercises below to help improve your alignment.")",
             severity: improved ? .normal : .moderate,
-            category: .posture
+            category: .posture,
+            exercises: improved ? [] : ExerciseLibrary.exercises(for: "postureDecline")
         )
     }
 
@@ -191,9 +218,10 @@ final class DefaultInsightsEngine: InsightsEngine {
             return Insight(
                 icon: "exclamationmark.triangle.fill",
                 title: "Low Walking Speed",
-                body: String(format: "Your walking speed of %.2f m/s is below the 0.8 m/s clinical threshold. Declining gait speed may indicate sarcopenia risk.", speed),
+                body: String(format: "Your walking speed of %.2f m/s is below the 0.8 m/s clinical threshold. Declining gait speed may indicate sarcopenia risk. See recommended exercises to help improve.", speed),
                 severity: .severe,
-                category: .gait
+                category: .gait,
+                exercises: ExerciseLibrary.exercises(for: "lowWalkingSpeed")
             )
         }
 
@@ -208,9 +236,10 @@ final class DefaultInsightsEngine: InsightsEngine {
                 return Insight(
                     icon: "arrow.down.circle.fill",
                     title: "Walking Speed Declining",
-                    body: String(format: "Your walking speed is trending downward (%.2f → %.2f m/s). Consider discussing with your healthcare provider.", firstAvg, secondAvg),
+                    body: String(format: "Your walking speed is trending downward (%.2f → %.2f m/s). Consider discussing with your healthcare provider and try the recommended exercises.", firstAvg, secondAvg),
                     severity: .moderate,
-                    category: .gait
+                    category: .gait,
+                    exercises: ExerciseLibrary.exercises(for: "lowWalkingSpeed")
                 )
             }
         }
@@ -233,9 +262,10 @@ final class DefaultInsightsEngine: InsightsEngine {
             return Insight(
                 icon: "person.fill.questionmark",
                 title: "Forward Head Posture Increasing",
-                body: String(format: "Your craniovertebral angle decreased by %.0f° over the last 5 sessions, indicating increasing forward head posture.", change),
+                body: String(format: "Your craniovertebral angle decreased by %.0f° over the last 5 sessions, indicating increasing forward head posture. Targeted exercises can help correct this.", change),
                 severity: .moderate,
-                category: .posture
+                category: .posture,
+                exercises: ExerciseLibrary.exercises(for: "forwardHeadPosture")
             )
         } else if change <= -3 {
             return Insight(
@@ -267,17 +297,19 @@ final class DefaultInsightsEngine: InsightsEngine {
             return Insight(
                 icon: "exclamationmark.octagon.fill",
                 title: "Fall Risk Escalated",
-                body: "Your fall risk increased from \(previousLevel) to \(currentLevel). Consider consulting your healthcare provider and reviewing home safety measures.",
+                body: "Your fall risk increased from \(previousLevel) to \(currentLevel). Consider consulting your healthcare provider and reviewing home safety measures. Balance exercises are strongly recommended.",
                 severity: .severe,
-                category: .risk
+                category: .risk,
+                exercises: ExerciseLibrary.exercises(for: "fallRisk")
             )
         } else {
             return Insight(
                 icon: "exclamationmark.triangle.fill",
                 title: "Fall Risk Increasing",
-                body: "Your fall risk moved from \(previousLevel) to \(currentLevel). Monitor closely and consider balance exercises.",
+                body: "Your fall risk moved from \(previousLevel) to \(currentLevel). The recommended balance exercises below can help reduce your fall risk.",
                 severity: .moderate,
-                category: .risk
+                category: .risk,
+                exercises: ExerciseLibrary.exercises(for: "fallRisk")
             )
         }
     }
@@ -300,9 +332,10 @@ final class DefaultInsightsEngine: InsightsEngine {
             return Insight(
                 icon: "battery.25percent",
                 title: "Early Fatigue Pattern",
-                body: String(format: "You tend to show fatigue signs after ~%.0f minutes. Consider shorter, more frequent sessions.", avgMinutes),
+                body: String(format: "You tend to show fatigue signs after ~%.0f minutes. Consider shorter, more frequent sessions and try the endurance exercises below.", avgMinutes),
                 severity: .mild,
-                category: .progress
+                category: .progress,
+                exercises: ExerciseLibrary.exercises(for: "fatigue")
             )
         }
         return nil
@@ -351,9 +384,10 @@ final class DefaultInsightsEngine: InsightsEngine {
             return Insight(
                 icon: "figure.walk.motion",
                 title: "Stride Asymmetry Detected",
-                body: String(format: "Left-right stride asymmetry of %.0f%% detected. Values above 10%% may indicate compensatory gait patterns — monitor for progression.", asymmetry),
+                body: String(format: "Left-right stride asymmetry of %.0f%% detected. Values above 10%% may indicate compensatory gait patterns. Try the symmetry exercises below to help balance your gait.", asymmetry),
                 severity: severity,
-                category: .gait
+                category: .gait,
+                exercises: ExerciseLibrary.exercises(for: "gaitAsymmetry")
             )
         }
         return nil
@@ -388,9 +422,10 @@ final class DefaultInsightsEngine: InsightsEngine {
             return Insight(
                 icon: "arrow.up.forward.circle.fill",
                 title: "Ergonomic Risk Increased",
-                body: "Your REBA score increased from \(oldScore) to \(recentScore). Consider reviewing your posture habits.",
+                body: "Your REBA score increased from \(oldScore) to \(recentScore). Review the ergonomic recommendations below to reduce your risk.",
                 severity: .moderate,
-                category: .posture
+                category: .posture,
+                exercises: ExerciseLibrary.exercises(for: "ergonomicRisk")
             )
         }
         return nil
@@ -405,17 +440,19 @@ final class DefaultInsightsEngine: InsightsEngine {
             return Insight(
                 icon: "text.book.closed.fill",
                 title: "Exercise Recommendation",
-                body: String(format: "Based on your CVA of %.0f°, consider chin tucks, cervical retraction exercises, and upper trapezius stretches to improve forward head posture.", cva),
+                body: String(format: "Based on your CVA of %.0f°, targeted neck and upper back exercises are recommended. Tap to see detailed instructions for each exercise.", cva),
                 severity: .moderate,
-                category: .recommendation
+                category: .recommendation,
+                exercises: ExerciseLibrary.exercises(for: "forwardHeadPosture")
             )
         } else if cva < 45 {
             return Insight(
                 icon: "text.book.closed.fill",
                 title: "Posture Tip",
-                body: String(format: "Your CVA of %.0f° is slightly below ideal (≥50°). Gentle chin tucks throughout the day can help maintain cervical alignment.", cva),
+                body: String(format: "Your CVA of %.0f° is slightly below ideal (≥50°). Gentle chin tucks throughout the day can help. See exercises below for detailed guidance.", cva),
                 severity: .mild,
-                category: .recommendation
+                category: .recommendation,
+                exercises: ExerciseLibrary.exercises(for: "forwardHeadPosture").filter { $0.difficulty == .beginner }
             )
         }
         return nil
@@ -434,6 +471,116 @@ final class DefaultInsightsEngine: InsightsEngine {
                     category: .progress
                 )
             }
+        }
+        return nil
+    }
+
+    // 11. SVA / Sagittal imbalance
+    private func svaInsight(_ sessions: [GaitSession]) -> Insight? {
+        let withSVA = sessions.filter { $0.averageSVACm != nil }
+        guard let latest = withSVA.last, let sva = latest.averageSVACm else { return nil }
+
+        let absSVA = abs(sva)
+        if absSVA >= 9.5 {
+            return Insight(
+                icon: "arrow.up.and.down.text.horizontal",
+                title: "Significant Sagittal Imbalance",
+                body: String(format: "Your sagittal vertical axis of %.1f cm is well above the 5 cm threshold. This level of forward shift is associated with disability and increased energy expenditure. Exercises to strengthen your back extensors and stretch hip flexors can help.", absSVA),
+                severity: .severe,
+                category: .posture,
+                exercises: ExerciseLibrary.exercises(for: "sagittalImbalance")
+            )
+        } else if absSVA >= 5.0 {
+            return Insight(
+                icon: "arrow.up.and.down.text.horizontal",
+                title: "Forward Sagittal Shift",
+                body: String(format: "Your SVA of %.1f cm exceeds the normal range (< 5 cm). Targeted core and back extension exercises can help restore sagittal balance.", absSVA),
+                severity: .moderate,
+                category: .posture,
+                exercises: ExerciseLibrary.exercises(for: "sagittalImbalance")
+            )
+        }
+        return nil
+    }
+
+    // 12. Thoracic kyphosis
+    private func kyphosisInsight(_ sessions: [GaitSession]) -> Insight? {
+        let withKyphosis = sessions.filter { $0.averageThoracicKyphosisDeg != nil }
+        guard let latest = withKyphosis.last, let kyphosis = latest.averageThoracicKyphosisDeg else { return nil }
+
+        if kyphosis > 55 {
+            let severity: ClinicalSeverity = kyphosis > 70 ? .severe : .moderate
+            return Insight(
+                icon: "figure.stand",
+                title: "Increased Thoracic Kyphosis",
+                body: String(format: "Your thoracic curvature of %.0f° exceeds the normal range (20–45°). Excessive rounding of the upper back can contribute to shoulder pain and breathing restrictions. Try the exercises below to improve thoracic extension.", kyphosis),
+                severity: severity,
+                category: .posture,
+                exercises: ExerciseLibrary.exercises(for: "thoracicKyphosis")
+            )
+        } else if kyphosis < 15 {
+            return Insight(
+                icon: "figure.stand",
+                title: "Reduced Thoracic Kyphosis",
+                body: String(format: "Your thoracic curvature of %.0f° is below the normal range (20–45°), indicating a flattened upper back. Spinal mobility exercises can help restore natural curvature.", kyphosis),
+                severity: .mild,
+                category: .posture,
+                exercises: ExerciseLibrary.exercises(for: "postureDecline")
+            )
+        }
+        return nil
+    }
+
+    // 13. Shoulder / Pelvic asymmetry
+    private func asymmetryInsight(_ sessions: [GaitSession]) -> Insight? {
+        let withShoulder = sessions.filter { $0.averageShoulderAsymmetryCm != nil }
+        let withPelvic = sessions.filter { $0.averagePelvicObliquityDeg != nil }
+
+        // Check shoulder asymmetry first
+        if let latest = withShoulder.last, let shoulderCm = latest.averageShoulderAsymmetryCm, shoulderCm > 3.0 {
+            let severity: ClinicalSeverity = shoulderCm > 5.0 ? .severe : .moderate
+            return Insight(
+                icon: "arrow.left.arrow.right",
+                title: "Shoulder Level Imbalance",
+                body: String(format: "Your shoulders differ in height by %.1f cm (normal < 1.5 cm). Uneven shoulders may indicate muscle imbalances or habitual patterns. Corrective exercises can help restore symmetry.", shoulderCm),
+                severity: severity,
+                category: .posture,
+                exercises: ExerciseLibrary.exercises(for: "shoulderAsymmetry")
+            )
+        }
+
+        // Then pelvic obliquity
+        if let latest = withPelvic.last, let pelvicDeg = latest.averagePelvicObliquityDeg, abs(pelvicDeg) > 3.0 {
+            let severity: ClinicalSeverity = abs(pelvicDeg) > 5.0 ? .severe : .moderate
+            return Insight(
+                icon: "arrow.left.arrow.right",
+                title: "Pelvic Obliquity Detected",
+                body: String(format: "Your pelvis tilts %.1f° from level (normal < 1°). Pelvic imbalance can affect gait symmetry and contribute to lower back pain. Hip stabilization exercises are recommended.", abs(pelvicDeg)),
+                severity: severity,
+                category: .posture,
+                exercises: ExerciseLibrary.exercises(for: "pelvicObliquity")
+            )
+        }
+
+        return nil
+    }
+
+    // 14. Trunk forward lean (posture-related, distinct from SVA)
+    private func trunkLeanInsight(_ sessions: [GaitSession]) -> Insight? {
+        let withLean = sessions.filter { $0.averageTrunkLeanDeg != nil }
+        guard let latest = withLean.last, let lean = latest.averageTrunkLeanDeg else { return nil }
+
+        let absLean = abs(lean)
+        if absLean > 10 {
+            let severity: ClinicalSeverity = absLean > 20 ? .severe : .moderate
+            return Insight(
+                icon: "figure.stand",
+                title: "Excessive Trunk Lean",
+                body: String(format: "Your average trunk lean of %.0f° exceeds the normal threshold (< 5°). Forward trunk lean increases spinal loading and fall risk. Core strengthening and hip flexibility exercises can help.", absLean),
+                severity: severity,
+                category: .posture,
+                exercises: ExerciseLibrary.exercises(for: "sagittalImbalance")
+            )
         }
         return nil
     }
