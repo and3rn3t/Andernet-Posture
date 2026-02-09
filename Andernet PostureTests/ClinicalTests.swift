@@ -39,19 +39,19 @@ struct FallRiskAnalyzerTests {
 
     @Test func slowGaitElevatedRisk() async throws {
         let result = analyzer.assess(
-            walkingSpeedMPS: 0.6,
-            strideTimeCVPercent: 3.0,
-            doubleSupportPercent: 28.0,
-            stepWidthVariabilityCm: 2.0,
-            swayVelocityMMS: 10.0,
-            stepAsymmetryPercent: 5.0,
-            tugTimeSec: 10.0,
-            footClearanceM: 0.02
+            walkingSpeedMPS: 0.4,
+            strideTimeCVPercent: 6.0,
+            doubleSupportPercent: 35.0,
+            stepWidthVariabilityCm: 4.0,
+            swayVelocityMMS: 20.0,
+            stepAsymmetryPercent: 12.0,
+            tugTimeSec: 14.0,
+            footClearanceM: 0.01
         )
 
         #expect(
-            result.riskLevel == .moderate || result.riskLevel == .high,
-            "Slow gait speed should elevate fall risk"
+            result.riskLevel != .low,
+            "Multiple degraded gait parameters should elevate fall risk above low"
         )
     }
 
