@@ -27,6 +27,27 @@ struct DashboardView: View {
                         clinicalQuickGlance
                     }
 
+                    // MARK: - Insights
+                    if !viewModel.insights.isEmpty {
+                        insightsSection
+                    }
+
+                    // MARK: - Goals
+                    NavigationLink(destination: GoalsView()) {
+                        HStack {
+                            Image(systemName: "target")
+                                .foregroundStyle(.blue)
+                            Text("Goals & Progress")
+                                .font(.headline)
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding()
+                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                    }
+                    .buttonStyle(.plain)
+
                     // MARK: - Posture Score Trend
                     if !viewModel.postureScoreTrend.isEmpty {
                         trendChart(
@@ -408,6 +429,73 @@ private struct ClinicalMiniCard: View {
     }
 
     private var severityColor: Color {
+        switch severity {
+        case .normal: return .green
+        case .mild: return .yellow
+        case .moderate: return .orange
+        case .severe: return .red
+        }
+    }
+}
+
+// MARK: - Insights Section
+
+extension DashboardView {
+    @ViewBuilder
+    var insightsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Insights")
+                    .font(.headline)
+                Spacer()
+                if viewModel.insights.count > 5 {
+                    NavigationLink("See All") {
+                        List(viewModel.insights) { insight in
+                            insightCard(insight)
+                                .listRowBackground(Color.clear)
+                                .listRowSeparator(.hidden)
+                        }
+                        .listStyle(.plain)
+                        .navigationTitle("All Insights")
+                    }
+                    .font(.subheadline)
+                }
+            }
+
+            ForEach(viewModel.insights.prefix(5)) { insight in
+                insightCard(insight)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func insightCard(_ insight: Insight) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: insight.icon)
+                .font(.title3)
+                .foregroundStyle(insightSeverityColor(insight.severity))
+                .frame(width: 32)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(insight.title)
+                    .font(.subheadline.bold())
+                Text(insight.body)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding()
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14)
+                .strokeBorder(insightSeverityColor(insight.severity).opacity(0.3), lineWidth: 1)
+        )
+    }
+
+    private func insightSeverityColor(_ severity: ClinicalSeverity) -> Color {
         switch severity {
         case .normal: return .green
         case .mild: return .yellow

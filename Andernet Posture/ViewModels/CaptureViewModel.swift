@@ -11,6 +11,7 @@ import SwiftData
 import Observation
 import simd
 import UIKit
+import os.log
 
 /// Drives the PostureGaitCaptureView — orchestrates services, holds live metrics.
 @Observable
@@ -33,6 +34,7 @@ final class CaptureViewModel {
     private let painRiskEngine: any PainRiskEngine
     private let frailtyScreener: any FrailtyScreener
     private let cardioEstimator: any CardioEstimator
+    private let healthKitService: any HealthKitService
 
     // MARK: - Published state
 
@@ -121,7 +123,8 @@ final class CaptureViewModel {
         crossedSyndromeDetector: any CrossedSyndromeDetector = DefaultCrossedSyndromeDetector(),
         painRiskEngine: any PainRiskEngine = DefaultPainRiskEngine(),
         frailtyScreener: any FrailtyScreener = DefaultFrailtyScreener(),
-        cardioEstimator: any CardioEstimator = DefaultCardioEstimator()
+        cardioEstimator: any CardioEstimator = DefaultCardioEstimator(),
+        healthKitService: any HealthKitService = DefaultHealthKitService()
     ) {
         self.gaitAnalyzer = gaitAnalyzer
         self.postureAnalyzer = postureAnalyzer
@@ -138,6 +141,7 @@ final class CaptureViewModel {
         self.painRiskEngine = painRiskEngine
         self.frailtyScreener = frailtyScreener
         self.cardioEstimator = cardioEstimator
+        self.healthKitService = healthKitService
 
         setupCallbacks()
     }
@@ -317,6 +321,34 @@ final class CaptureViewModel {
 
         context.insert(session)
         try? context.save()
+
+        // HealthKit auto-save
+        if UserDefaults.standard.bool(forKey: "healthKitSync") {
+            let hkService = healthKitService
+            let steps = session.totalSteps ?? 0
+            let speed = session.averageWalkingSpeedMPS
+            let stride = session.averageStrideLengthM
+            let asymmetry = session.gaitAsymmetryPercent.map { $0 / 100.0 }
+            let distance: Double? = nil  // Not directly tracked as raw distance
+            let start = session.date.addingTimeInterval(-session.duration)
+            let end = session.date
+            Task {
+                do {
+                    try await hkService.saveSession(
+                        steps: steps,
+                        walkingSpeed: speed,
+                        strideLength: stride,
+                        asymmetry: asymmetry,
+                        distance: distance,
+                        start: start,
+                        end: end
+                    )
+                    AppLogger.healthKit.info("HealthKit session auto-save succeeded")
+                } catch {
+                    AppLogger.healthKit.error("HealthKit session auto-save failed: \(error.localizedDescription)")
+                }
+            }
+        }
 
         recorder.reset()
         gaitAnalyzer.reset()

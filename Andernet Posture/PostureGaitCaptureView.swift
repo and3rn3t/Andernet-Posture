@@ -16,6 +16,8 @@ struct PostureGaitCaptureView: View {
     @State private var showSavedAlert = false
     @AppStorage("skeletonOverlay") private var skeletonOverlay = true
     @AppStorage("samplingRate") private var samplingRate = 60.0
+    @State private var coachingTip: String? = nil
+    @State private var showCoachingTip = false
 
     var body: some View {
         ZStack {
@@ -41,6 +43,13 @@ struct PostureGaitCaptureView: View {
                     calibrationOverlay
                 }
 
+                // MARK: - Coaching tip
+                if showCoachingTip, let tip = coachingTip {
+                    coachingTipView(tip)
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                        .padding(.bottom, 8)
+                }
+
                 // MARK: - Error message
                 if let error = viewModel.errorMessage {
                     Text(error)
@@ -58,6 +67,9 @@ struct PostureGaitCaptureView: View {
             }
         }
         .statusBarHidden()
+        .onChange(of: viewModel.isBodyDetected) { evaluateCoachingTip() }
+        .onChange(of: viewModel.postureScore) { evaluateCoachingTip() }
+        .onChange(of: viewModel.trunkLeanDeg) { evaluateCoachingTip() }
         .alert("Session Saved", isPresented: $showSavedAlert) {
             Button("OK") { dismiss() }
         } message: {
@@ -255,6 +267,48 @@ struct PostureGaitCaptureView: View {
         .padding(.vertical, 12)
         .padding(.horizontal, 20)
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20))
+    }
+
+    // MARK: - Coaching Tip
+
+    @ViewBuilder
+    private func coachingTipView(_ tip: String) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: "lightbulb.fill")
+                .font(.subheadline)
+                .foregroundStyle(.yellow)
+            Text(tip)
+                .font(.subheadline)
+                .foregroundStyle(.white)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .background(.ultraThinMaterial, in: Capsule())
+    }
+
+    private func evaluateCoachingTip() {
+        var tip: String? = nil
+
+        if !viewModel.isBodyDetected && viewModel.recordingState == .recording {
+            tip = "Move back so your full body is visible"
+        } else if viewModel.postureScore > 0 && viewModel.postureScore < 30 {
+            tip = "Try standing up straighter"
+        } else if viewModel.trunkLeanDeg > 20 {
+            tip = "Significant forward lean detected"
+        }
+
+        if let newTip = tip, newTip != coachingTip {
+            coachingTip = newTip
+            withAnimation(.easeInOut(duration: 0.3)) {
+                showCoachingTip = true
+            }
+            Task {
+                try? await Task.sleep(for: .seconds(5))
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    showCoachingTip = false
+                }
+            }
+        }
     }
 
     // MARK: - Helpers

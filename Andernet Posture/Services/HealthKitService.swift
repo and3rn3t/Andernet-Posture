@@ -54,6 +54,15 @@ protocol HealthKitService {
 
     /// Read daily step count average over the last N days.
     func fetchAverageDailySteps(days: Int) async throws -> Double
+
+    /// Save a 6-Minute Walk Test distance to HealthKit.
+    func saveSixMWTDistance(_ distanceM: Double, date: Date) async throws
+
+    /// Read recent walking asymmetry samples over the last N days.
+    func fetchRecentWalkingAsymmetry(days: Int) async throws -> [HKQuantitySample]
+
+    /// Read recent double-support time samples over the last N days.
+    func fetchRecentDoubleSupportTime(days: Int) async throws -> [HKQuantitySample]
 }
 
 // MARK: - Default Implementation
@@ -92,6 +101,8 @@ final class DefaultHealthKitService: HealthKitService {
             .init(.walkingStepLength),
             .init(.distanceWalkingRunning),
             .init(.sixMinuteWalkTestDistance),
+            .init(.walkingAsymmetryPercentage),
+            .init(.walkingDoubleSupportPercentage),
         ]
         return Set(types)
     }
@@ -138,6 +149,11 @@ final class DefaultHealthKitService: HealthKitService {
         if let dist = distance, dist > 0 {
             let qty = HKQuantity(unit: .meter(), doubleValue: dist)
             samples.append(HKQuantitySample(type: .init(.distanceWalkingRunning), quantity: qty, start: start, end: end))
+        }
+
+        if let asym = asymmetry, asym > 0 {
+            let qty = HKQuantity(unit: .percent(), doubleValue: asym * 100)
+            samples.append(HKQuantitySample(type: .init(.walkingAsymmetryPercentage), quantity: qty, start: start, end: end))
         }
 
         guard !samples.isEmpty else { return }
@@ -241,6 +257,78 @@ final class DefaultHealthKitService: HealthKitService {
         guard let start = calendar.date(byAdding: .day, value: -days, to: end) else { return 0 }
         let totalSteps = try await fetchSteps(from: start, to: end)
         return days > 0 ? totalSteps / Double(days) : 0
+    }
+
+    // MARK: 6MWT Save
+
+    func saveSixMWTDistance(_ distanceM: Double, date: Date) async throws {
+        guard distanceM > 0 else { return }
+        let qty = HKQuantity(unit: .meter(), doubleValue: distanceM)
+        let sample = HKQuantitySample(
+            type: .init(.sixMinuteWalkTestDistance),
+            quantity: qty,
+            start: date.addingTimeInterval(-360),
+            end: date
+        )
+        try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Void, Error>) in
+            store.save(sample) { success, error in
+                if let error {
+                    AppLogger.healthKit.error("Failed to save 6MWT distance: \(error.localizedDescription)")
+                    cont.resume(throwing: error)
+                } else {
+                    AppLogger.healthKit.info("Saved 6MWT distance: \(distanceM, format: .fixed(precision: 1))m")
+                    cont.resume()
+                }
+            }
+        }
+    }
+
+    // MARK: Fetch Walking Asymmetry
+
+    func fetchRecentWalkingAsymmetry(days: Int) async throws -> [HKQuantitySample] {
+        let calendar = Calendar.current
+        let end = Date()
+        guard let start = calendar.date(byAdding: .day, value: -days, to: end) else { return [] }
+        let type = HKQuantityType(.walkingAsymmetryPercentage)
+        let predicate = HKQuery.predicateForSamples(withStart: start, end: end)
+        let sort = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: true)
+
+        return try await withCheckedThrowingContinuation { cont in
+            let query = HKSampleQuery(
+                sampleType: type,
+                predicate: predicate,
+                limit: HKObjectQueryNoLimit,
+                sortDescriptors: [sort]
+            ) { _, samples, error in
+                if let error { cont.resume(throwing: error); return }
+                cont.resume(returning: (samples as? [HKQuantitySample]) ?? [])
+            }
+            store.execute(query)
+        }
+    }
+
+    // MARK: Fetch Double Support Time
+
+    func fetchRecentDoubleSupportTime(days: Int) async throws -> [HKQuantitySample] {
+        let calendar = Calendar.current
+        let end = Date()
+        guard let start = calendar.date(byAdding: .day, value: -days, to: end) else { return [] }
+        let type = HKQuantityType(.walkingDoubleSupportPercentage)
+        let predicate = HKQuery.predicateForSamples(withStart: start, end: end)
+        let sort = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: true)
+
+        return try await withCheckedThrowingContinuation { cont in
+            let query = HKSampleQuery(
+                sampleType: type,
+                predicate: predicate,
+                limit: HKObjectQueryNoLimit,
+                sortDescriptors: [sort]
+            ) { _, samples, error in
+                if let error { cont.resume(throwing: error); return }
+                cont.resume(returning: (samples as? [HKQuantitySample]) ?? [])
+            }
+            store.execute(query)
+        }
     }
 
     // MARK: Private Helpers

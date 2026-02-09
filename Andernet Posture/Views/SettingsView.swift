@@ -17,6 +17,7 @@ struct SettingsView: View {
     @AppStorage("userSex") private var userSex = "notSet"  // "male", "female", "notSet"
     @AppStorage("clinicalDisclaimerAccepted") private var disclaimerAccepted = false
     @AppStorage("showNormativeRanges") private var showNormativeRanges = true
+    @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
 
     @State private var healthKitService: DefaultHealthKitService? = DefaultHealthKitService()
     @State private var healthKitAuthorized = false
@@ -139,6 +140,21 @@ struct SettingsView: View {
                     }
                 } header: {
                     Text("Legal")
+                }
+
+                // MARK: - Support
+                Section("Support") {
+                    NavigationLink {
+                        HelpView()
+                    } label: {
+                        Label("Help & FAQ", systemImage: "questionmark.circle")
+                    }
+
+                    Button {
+                        hasCompletedOnboarding = false
+                    } label: {
+                        Label("Reset Onboarding", systemImage: "arrow.counterclockwise")
+                    }
                 }
 
                 // MARK: - About

@@ -49,6 +49,10 @@ final class DashboardViewModel {
     var fallRiskTrend: [TrendPoint] = []
     var fatigueTrend: [TrendPoint] = []
 
+    // Insights
+    var insights: [Insight] = []
+    private let insightsEngine: any InsightsEngine = DefaultInsightsEngine()
+
     // Quick posture summary
     var postureLabel: String {
         guard let score = recentPostureScore else { return "No data" }
@@ -167,5 +171,8 @@ final class DashboardViewModel {
             guard let fi = s.fatigueIndex else { return nil }
             return TrendPoint(date: s.date, value: fi)
         }
+
+        // Generate clinical insights
+        insights = insightsEngine.generateInsights(from: sessions)
     }
 }

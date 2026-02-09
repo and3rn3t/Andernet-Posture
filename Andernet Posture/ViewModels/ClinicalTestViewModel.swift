@@ -8,6 +8,7 @@
 
 import Foundation
 import Observation
+import os.log
 
 // MARK: - Test Protocol State
 
@@ -49,6 +50,7 @@ final class ClinicalTestViewModel {
 
     private let balanceAnalyzer: any BalanceAnalyzer
     private let cardioEstimator: any CardioEstimator
+    private let healthKitService: any HealthKitService
 
     // MARK: - Private
 
@@ -59,10 +61,12 @@ final class ClinicalTestViewModel {
 
     init(
         balanceAnalyzer: any BalanceAnalyzer = DefaultBalanceAnalyzer(),
-        cardioEstimator: any CardioEstimator = DefaultCardioEstimator()
+        cardioEstimator: any CardioEstimator = DefaultCardioEstimator(),
+        healthKitService: any HealthKitService = DefaultHealthKitService()
     ) {
         self.balanceAnalyzer = balanceAnalyzer
         self.cardioEstimator = cardioEstimator
+        self.healthKitService = healthKitService
     }
 
     // MARK: - TUG Protocol
@@ -188,6 +192,19 @@ final class ClinicalTestViewModel {
             sexIsMale: sexIsMale
         )
         testState = .completed
+
+        // Save 6MWT distance to HealthKit
+        if UserDefaults.standard.bool(forKey: "healthKitSync"), sixMWTDistance > 0 {
+            let hkService = healthKitService
+            let distance = sixMWTDistance
+            Task {
+                do {
+                    try await hkService.saveSixMWTDistance(distance, date: Date())
+                } catch {
+                    AppLogger.healthKit.error("Failed to save 6MWT to HealthKit: \(error.localizedDescription)")
+                }
+            }
+        }
     }
 
     // MARK: - Cancel
