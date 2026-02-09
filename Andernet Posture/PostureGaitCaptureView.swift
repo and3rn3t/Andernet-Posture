@@ -60,6 +60,10 @@ struct PostureGaitCaptureView: View {
                         .padding(.bottom, 8)
                 }
 
+                // MARK: - AR Overlay mode selector
+                CaptureAROverlayBar()
+                    .padding(.bottom, 8)
+
                 // MARK: - Bottom control bar
                 bottomControls
                     .padding(.horizontal)

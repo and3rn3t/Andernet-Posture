@@ -93,6 +93,9 @@ struct SettingsView: View {
                     }
                 }
 
+                // MARK: - AR Overlay
+                AROverlaySettingsSection()
+
                 // MARK: - HealthKit
                 Section("Health") {
                     Toggle("Sync to HealthKit", systemImage: "heart.fill", isOn: $healthKitSync)

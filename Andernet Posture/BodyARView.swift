@@ -64,6 +64,11 @@ extension BodyARView {
         private var jointEntities: [JointName: ModelEntity] = [:]
         private var boneEntities: [(ModelEntity, JointName, JointName)] = []
 
+        // AR overlay system
+        private var overlayRenderer: AROverlayRenderer?
+        private var overlayConfig: AROverlayConfig?
+        private var cachedSkeletonEntities: SkeletonEntities?
+
         /// Toggled by `updateUIView` when the @AppStorage value changes.
         var showSkeleton: Bool
         /// Target sampling rate (Hz). Frames are skipped to approximate this rate.
@@ -106,6 +111,15 @@ extension BodyARView {
                 anchor.addChild(entity)
                 boneEntities.append((entity, from, to))
             }
+
+            // Initialize overlay rendering system
+            overlayConfig = AROverlayConfig()
+            overlayRenderer = AROverlayRenderer()
+            cachedSkeletonEntities = SkeletonEntities(
+                joints: jointEntities,
+                bones: boneEntities.map { (entity: $0.0, from: $0.1, to: $0.2) },
+                anchor: bodyAnchorEntity
+            )
         }
 
         // MARK: ARSessionDelegate
@@ -200,6 +214,29 @@ extension BodyARView {
                     entity.orientation = simd_quatf(ix: 0, iy: 0, iz: 0, r: 1)
                 }
                 entity.isEnabled = true
+            }
+
+            // Apply mode-specific overlay styling
+            if let renderer = overlayRenderer,
+               let config = overlayConfig,
+               let entities = cachedSkeletonEntities {
+                let metrics = OverlayMetrics(
+                    severities: viewModel.severities,
+                    postureScore: viewModel.postureScore,
+                    trunkLeanDeg: viewModel.trunkLeanDeg,
+                    craniovertebralAngleDeg: viewModel.craniovertebralAngleDeg,
+                    hipFlexionLeftDeg: viewModel.hipFlexionLeftDeg,
+                    hipFlexionRightDeg: viewModel.hipFlexionRightDeg,
+                    kneeFlexionLeftDeg: viewModel.kneeFlexionLeftDeg,
+                    kneeFlexionRightDeg: viewModel.kneeFlexionRightDeg,
+                    rebaScore: viewModel.rebaScore
+                )
+                renderer.updateOverlay(
+                    config: config,
+                    joints: joints,
+                    entities: entities,
+                    metrics: metrics
+                )
             }
         }
     }

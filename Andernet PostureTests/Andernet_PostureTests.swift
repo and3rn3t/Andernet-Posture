@@ -6,6 +6,7 @@
 //
 
 import Testing
+import Foundation
 import simd
 @testable import Andernet_Posture
 
@@ -130,8 +131,8 @@ struct GaitSessionModelTests {
             BodyFrame(
                 timestamp: 0.0,
                 joints: [.root: SIMD3<Float>(0, 0, 0), .neck1: SIMD3<Float>(0, 0.5, 0)],
-                trunkLeanDeg: 3.5,
-                lateralLeanDeg: 1.2,
+                sagittalTrunkLeanDeg: 3.5,
+                frontalTrunkLeanDeg: 1.2,
                 cadenceSPM: 110,
                 avgStrideLengthM: 0.7
             )
@@ -143,7 +144,7 @@ struct GaitSessionModelTests {
         let session = GaitSession(framesData: data)
         let decoded = session.decodedFrames
         #expect(decoded.count == 1)
-        #expect(abs(decoded[0].trunkLeanDeg - 3.5) < 0.01)
+        #expect(abs(decoded[0].sagittalTrunkLeanDeg - 3.5) < 0.01)
         #expect(abs(decoded[0].cadenceSPM - 110) < 0.01)
     }
 
@@ -196,7 +197,7 @@ struct SessionRecorderTests {
         let recorder = DefaultSessionRecorder()
         let frame = BodyFrame(
             timestamp: 0, joints: [:],
-            trunkLeanDeg: 0, lateralLeanDeg: 0,
+            sagittalTrunkLeanDeg: 0, frontalTrunkLeanDeg: 0,
             cadenceSPM: 0, avgStrideLengthM: 0
         )
 
@@ -395,8 +396,8 @@ struct SessionDetailViewModelTests {
             BodyFrame(
                 timestamp: baseTime + Double(i) / 30.0,
                 joints: [:],
-                trunkLeanDeg: 3.0 + Double(i) * 0.05,
-                lateralLeanDeg: 1.0,
+                sagittalTrunkLeanDeg: 3.0 + Double(i) * 0.05,
+                frontalTrunkLeanDeg: 1.0,
                 cadenceSPM: 110,
                 avgStrideLengthM: 0.7
             )
@@ -428,7 +429,7 @@ struct SessionDetailViewModelTests {
         let frames = [
             BodyFrame(
                 timestamp: 0, joints: [:],
-                trunkLeanDeg: 3, lateralLeanDeg: 1,
+                sagittalTrunkLeanDeg: 3, frontalTrunkLeanDeg: 1,
                 cadenceSPM: 110, avgStrideLengthM: 0.7
             )
         ]
