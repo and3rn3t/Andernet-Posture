@@ -81,14 +81,16 @@ final class DefaultPostureAnalyzer: PostureAnalyzer {
         // Frontal trunk lean: hips→spine7 in XY plane
         let frontalLean = Double(trunkVec.frontalAngleFromVerticalDeg())
 
-        // CVA: angle from C7 (spine7) to head in sagittal plane
-        // CVA = atan2(Δy, Δz) — higher angle = more upright head
+        // CVA: angle from horizontal to the C7→tragus line in the sagittal plane.
+        // Higher angle = more upright head. Normal 49–56° (Yip et al., 2008).
         let headVec = head - spine7
         let cvaDeg: Double = {
-            let sagDelta = SIMD2<Float>(headVec.y, headVec.z)
-            let len = simd_length(sagDelta)
+            let verticalDelta = headVec.y   // up component
+            let forwardDelta = headVec.z    // depth (AP) component
+            let len = sqrt(verticalDelta * verticalDelta + forwardDelta * forwardDelta)
             guard len > 0.001 else { return 52.0 } // default ideal
-            return Double(atan2(sagDelta.x, abs(sagDelta.y)) * 180 / .pi)
+            // CVA = atan2(vertical, |horizontal|) — angle from horizontal
+            return Double(atan2(verticalDelta, abs(forwardDelta)) * 180 / .pi)
         }()
 
         // SVA: horizontal offset of C7 relative to S1 (root) in sagittal plane
@@ -146,12 +148,22 @@ final class DefaultPostureAnalyzer: PostureAnalyzer {
         }
         let coronalDevCm = Double(maxDeviation * 100)
 
+        // Pelvic tilt for Kendall classification (from ROM data if available)
+        let pelvicTiltForKendall: Double
+        if let s1 = joints[.spine1] {
+            let pelvisVec = s1 - root
+            pelvicTiltForKendall = Double(pelvisVec.sagittalAngleFromVerticalDeg())
+        } else {
+            pelvicTiltForKendall = 0
+        }
+
         // Kendall postural type classification
         let posturalType = classifyKendall(
             headOffset: Double(head.z - root.z) * 100,
             shoulderOffset: Double(spine7.z - root.z) * 100,
             kyphosis: kyphosisDeg,
-            lordosis: lordosisDeg
+            lordosis: lordosisDeg,
+            pelvicTiltDeg: pelvicTiltForKendall
         )
 
         // ── Tier 3: NYPR ──
@@ -166,6 +178,11 @@ final class DefaultPostureAnalyzer: PostureAnalyzer {
         let kyphosisScore = PostureThresholds.subScore(measured: kyphosisDeg, idealTarget: 32.5, maxDeviation: 40)
         let pelvicScore = PostureThresholds.subScore(measured: abs(pelvicDeg), idealTarget: 0, maxDeviation: 8)
 
+        // Lordosis sub-score
+        let lordosisScore = PostureThresholds.subScore(measured: lordosisDeg, idealTarget: 50.0, maxDeviation: 35)
+        // Coronal scoliosis sub-score
+        let coronalScore = PostureThresholds.subScore(measured: coronalDevCm, idealTarget: 0, maxDeviation: 6)
+
         let composite =
             cvaScore * PostureThresholds.compositeCVAWeight +
             svaScore * PostureThresholds.compositeSVAWeight +
@@ -173,7 +190,9 @@ final class DefaultPostureAnalyzer: PostureAnalyzer {
             lateralScore * PostureThresholds.compositeLateralWeight +
             shoulderScore * PostureThresholds.compositeShoulderWeight +
             kyphosisScore * PostureThresholds.compositeKyphosisWeight +
-            pelvicScore * PostureThresholds.compositePelvicWeight
+            pelvicScore * PostureThresholds.compositePelvicWeight +
+            lordosisScore * PostureThresholds.compositeLordosisWeight +
+            coronalScore * PostureThresholds.compositeCoronalWeight
 
         // Severities
         let severities: [String: ClinicalSeverity] = [
@@ -220,12 +239,13 @@ final class DefaultPostureAnalyzer: PostureAnalyzer {
 
     // MARK: - Kendall Classification
 
-    private func classifyKendall(headOffset: Double, shoulderOffset: Double, kyphosis: Double, lordosis: Double) -> PosturalType {
+    private func classifyKendall(headOffset: Double, shoulderOffset: Double, kyphosis: Double, lordosis: Double, pelvicTiltDeg: Double = 0) -> PosturalType {
         let forwardHead = headOffset > 3       // head anterior to root
         let forwardShoulder = shoulderOffset > 2 // shoulders forward
         let highKyphosis = kyphosis > 45
         let highLordosis = lordosis > 55
         let lowLordosis = lordosis < 35
+        let posteriorPelvicTilt = pelvicTiltDeg < -5  // posterior tilt
 
         if forwardHead && forwardShoulder && highKyphosis && highLordosis {
             return .kyphosisLordosis
@@ -233,7 +253,9 @@ final class DefaultPostureAnalyzer: PostureAnalyzer {
         if lowLordosis && !highKyphosis {
             return .flatBack
         }
-        if forwardHead && !forwardShoulder && lowLordosis {
+        // Sway-back: posterior pelvic tilt with forward head, flattened lordosis
+        // Ref: Kendall FP et al., Muscles: Testing and Function, 2005
+        if forwardHead && (posteriorPelvicTilt || lowLordosis) && !forwardShoulder {
             return .swayBack
         }
         return .ideal

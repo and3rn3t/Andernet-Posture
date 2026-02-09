@@ -135,7 +135,7 @@ struct BodyFrame: Codable, Sendable {
 
         sagittalTrunkLeanDeg = try c.decodeIfPresent(Double.self, forKey: .sagittalTrunkLeanDeg) ?? 0
         frontalTrunkLeanDeg = try c.decodeIfPresent(Double.self, forKey: .frontalTrunkLeanDeg) ?? 0
-        craniovertebralAngleDeg = try c.decodeIfPresent(Double.self, forKey: .craniovertebralAngleDeg) ?? 0
+        craniovertebralAngleDeg = try c.decodeIfPresent(Double.self, forKey: .craniovertebralAngleDeg) ?? 52.0  // ideal CVA default, not 0 (pathological)
         sagittalVerticalAxisCm = try c.decodeIfPresent(Double.self, forKey: .sagittalVerticalAxisCm) ?? 0
         shoulderAsymmetryCm = try c.decodeIfPresent(Double.self, forKey: .shoulderAsymmetryCm) ?? 0
         shoulderTiltDeg = try c.decodeIfPresent(Double.self, forKey: .shoulderTiltDeg) ?? 0

@@ -55,9 +55,15 @@ extension SIMD3 where Scalar == Float {
 
 /// Angle at vertex B formed by rays BA and BC, in degrees (0–180).
 /// Uses the dot-product formula: angle = acos(BA·BC / |BA||BC|)
+/// Returns 180° if either ray has zero length (coincident points).
 func threePointAngleDeg(a: SIMD3<Float>, vertex: SIMD3<Float>, c: SIMD3<Float>) -> Float {
-    let ba = simd_normalize(a - vertex)
-    let bc = simd_normalize(c - vertex)
+    let va = a - vertex
+    let vc = c - vertex
+    let lenA = simd_length(va)
+    let lenC = simd_length(vc)
+    guard lenA > 0.0001, lenC > 0.0001 else { return 180.0 }
+    let ba = va / lenA
+    let bc = vc / lenC
     let dot = simd_clamp(simd_dot(ba, bc), -1, 1)
     return acos(dot) * 180 / .pi
 }

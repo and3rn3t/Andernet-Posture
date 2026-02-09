@@ -366,6 +366,8 @@ struct ClinicalTestView: View {
                 resultRow("Eyes Closed Sway", value: String(format: "%.1f mm/s", result.eyesClosedSwayVelocity))
                 resultRow("Romberg Ratio", value: String(format: "%.2f", result.ratio),
                            severity: result.ratio <= 2.0 ? .normal : .moderate)
+                resultRow("Area Ratio", value: String(format: "%.2f", result.areaRatio),
+                           severity: result.areaRatio <= 2.0 ? .normal : .moderate)
 
                 Text("Ratio >2.0 suggests proprioceptive/vestibular deficit")
                     .font(.caption2)

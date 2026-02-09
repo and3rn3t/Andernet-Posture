@@ -39,6 +39,9 @@ struct RombergResult: Sendable {
     let eyesClosedSwayVelocity: Double
     /// Ratio of EC/EO sway velocity. > 2.0 suggests proprioceptive/vestibular deficit.
     let ratio: Double
+    /// Ratio of EC/EO sway area. Provides additional sensitivity.
+    /// Ref: Agrawal Y et al., Otol Neurotol, 2011.
+    let areaRatio: Double
 }
 
 // MARK: - Protocol
@@ -143,14 +146,20 @@ final class DefaultBalanceAnalyzer: BalanceAnalyzer {
         let eoMetrics = computeMetrics(from: eyesOpenPositions)
         let ecMetrics = computeMetrics(from: eyesClosedPositions)
 
-        let ratio = eoMetrics.swayVelocityMMS > 0.1
+        let velocityRatio = eoMetrics.swayVelocityMMS > 0.1
             ? ecMetrics.swayVelocityMMS / eoMetrics.swayVelocityMMS
+            : 1.0
+
+        // Area-based Romberg ratio for improved sensitivity (Agrawal et al., 2011)
+        let areaRatio = eoMetrics.swayAreaCm2 > 0.01
+            ? ecMetrics.swayAreaCm2 / eoMetrics.swayAreaCm2
             : 1.0
 
         return RombergResult(
             eyesOpenSwayVelocity: eoMetrics.swayVelocityMMS,
             eyesClosedSwayVelocity: ecMetrics.swayVelocityMMS,
-            ratio: ratio
+            ratio: velocityRatio,
+            areaRatio: areaRatio
         )
     }
 
@@ -165,14 +174,17 @@ final class DefaultBalanceAnalyzer: BalanceAnalyzer {
     // MARK: - Private Helpers
 
     private func updateStandingState() {
-        guard positions.count >= 5,
-              let first = positions.suffix(10).first,
+        // Use a 1–2 second window (~30–60 frames at 30fps) for robust standing detection.
+        // Previously used 10 samples (≈0.33s) which caused flickering.
+        let windowSize = 45  // ~1.5 seconds at 30fps
+        guard positions.count >= 10,
+              let first = positions.suffix(windowSize).first,
               let last = positions.last else {
             isStanding = false
             return
         }
         let dt = last.timestamp - first.timestamp
-        guard dt > 0.3 else { isStanding = false; return }
+        guard dt > 0.5 else { isStanding = false; return }
         let dist = first.position.xzDistance(to: last.position)
         let speed = dist / Float(dt)
         isStanding = speed < standingSpeedThreshold

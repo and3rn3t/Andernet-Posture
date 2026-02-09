@@ -45,7 +45,8 @@ protocol GaitPatternClassifier: AnyObject {
         walkingSpeedMPS: Double?,
         strideLengthM: Double?,
         hipFlexionROMDeg: Double?,
-        armSwingAsymmetryPercent: Double?
+        armSwingAsymmetryPercent: Double?,
+        kneeFlexionROMDeg: Double?
     ) -> GaitPatternResult
 }
 
@@ -66,7 +67,8 @@ final class DefaultGaitPatternClassifier: GaitPatternClassifier {
         walkingSpeedMPS: Double?,
         strideLengthM: Double?,
         hipFlexionROMDeg: Double?,
-        armSwingAsymmetryPercent: Double?
+        armSwingAsymmetryPercent: Double?,
+        kneeFlexionROMDeg: Double? = nil
     ) -> GaitPatternResult {
 
         var scores: [GaitPatternType: Double] = [:]
@@ -171,6 +173,26 @@ final class DefaultGaitPatternClassifier: GaitPatternClassifier {
             circumductionScore += 0.2
         }
         scores[.circumduction] = min(1.0, circumductionScore)
+
+        // ── Stiff-Knee ──
+        // Reduced knee flexion ROM during swing phase, common in spastic/neurological gait.
+        // Normal swing-phase knee flexion ≈ 60–70° (Perry & Burnfield, 2010).
+        var stiffKneeScore = 0.0
+        if let kneeROM = kneeFlexionROMDeg, kneeROM < 50 {
+            stiffKneeScore += min(1.0, (50 - kneeROM) / 30) * 0.5
+            flags.append("Reduced knee flexion ROM: \(String(format: "%.0f", kneeROM))°")
+        }
+        if let hipROM = hipFlexionROMDeg, hipROM < 25 {
+            stiffKneeScore += 0.2  // hip compensation for stiff knee
+        }
+        if let speed = walkingSpeedMPS, speed < 0.8 {
+            stiffKneeScore += 0.2
+        }
+        // Circumduction often accompanies stiff knee; limit overlap
+        if circumductionScore > 0.3 {
+            stiffKneeScore += 0.1
+        }
+        scores[.stiffKnee] = min(1.0, stiffKneeScore)
 
         // ── Normal ──
         // Inverse of all pathological scores.

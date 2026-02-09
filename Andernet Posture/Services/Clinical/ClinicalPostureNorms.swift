@@ -185,13 +185,16 @@ enum PostureThresholds {
     // MARK: - Composite Score Weights
     // Evidence-based weights: CVA + SVA strongest predictors of disability.
     // Ref: Glassman 2005 (SVA), Mahmoud 2019 (CVA), combined clinical judgment.
-    static let compositeCVAWeight: Double        = 0.25
-    static let compositeSVAWeight: Double        = 0.25
-    static let compositeTrunkWeight: Double      = 0.15
-    static let compositeLateralWeight: Double    = 0.10
-    static let compositeShoulderWeight: Double   = 0.10
+    // Lordosis and coronal deviation included for comprehensive assessment.
+    static let compositeCVAWeight: Double        = 0.22
+    static let compositeSVAWeight: Double        = 0.22
+    static let compositeTrunkWeight: Double      = 0.13
+    static let compositeLateralWeight: Double    = 0.08
+    static let compositeShoulderWeight: Double   = 0.08
     static let compositeKyphosisWeight: Double   = 0.10
     static let compositePelvicWeight: Double     = 0.05
+    static let compositeLordosisWeight: Double   = 0.07
+    static let compositeCoronalWeight: Double    = 0.05
 
     /// Compute a sub-score for one parameter: 100 = ideal, 0 = at/beyond worst threshold.
     /// `measured`: the absolute value of the measurement.
@@ -361,6 +364,7 @@ enum GaitPatternType: String, Codable, Sendable {
     case circumduction  // lateral arc of leg in swing
     case ataxic         // irregular, wide-based
     case waddling       // bilateral Trendelenburg
+    case stiffKnee      // reduced knee flexion ROM during swing — spastic/neurological
 }
 
 // MARK: - REBA Risk Level

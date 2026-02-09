@@ -121,6 +121,17 @@ final class DefaultGaitAnalyzer: GaitAnalyzer {
     private var leftStanceTimes: [Double] = []
     private var rightStanceTimes: [Double] = []
 
+    // MARK: Toe-off detection for temporal parameters
+    // Estimated from foot velocity: toe-off = foot Y-velocity crosses above threshold
+    private var lastLeftToeOffTime: TimeInterval = -1
+    private var lastRightToeOffTime: TimeInterval = -1
+
+    // EMA (Exponential Moving Average) filtered ankle Y positions
+    private var leftAnkleEMA: Float?
+    private var rightAnkleEMA: Float?
+    /// EMA smoothing factor (0–1). Lower = more smoothing. ~0.3 at 30fps ≈ light filter.
+    private let emaAlpha: Float = 0.3
+
     // MARK: Walking speed
 
     private var recentPositions: [(pos: SIMD3<Float>, time: TimeInterval)] = []
@@ -142,9 +153,29 @@ final class DefaultGaitAnalyzer: GaitAnalyzer {
             return emptyMetrics()
         }
 
-        // Append time-stamped samples
-        leftAnkleSamples.append(TimedSample(position: leftFoot, timestamp: timestamp))
-        rightAnkleSamples.append(TimedSample(position: rightFoot, timestamp: timestamp))
+        // Apply EMA filtering to ankle Y positions to reduce ARKit skeleton jitter
+        let filteredLeftY: Float
+        let filteredRightY: Float
+        if let prevLeft = leftAnkleEMA {
+            filteredLeftY = emaAlpha * leftFoot.y + (1 - emaAlpha) * prevLeft
+        } else {
+            filteredLeftY = leftFoot.y
+        }
+        if let prevRight = rightAnkleEMA {
+            filteredRightY = emaAlpha * rightFoot.y + (1 - emaAlpha) * prevRight
+        } else {
+            filteredRightY = rightFoot.y
+        }
+        leftAnkleEMA = filteredLeftY
+        rightAnkleEMA = filteredRightY
+
+        // Use filtered Y for time-stamped samples (preserving original XZ)
+        let filteredLeftFoot = SIMD3<Float>(leftFoot.x, filteredLeftY, leftFoot.z)
+        let filteredRightFoot = SIMD3<Float>(rightFoot.x, filteredRightY, rightFoot.z)
+
+        // Append time-stamped samples with filtered Y
+        leftAnkleSamples.append(TimedSample(position: filteredLeftFoot, timestamp: timestamp))
+        rightAnkleSamples.append(TimedSample(position: filteredRightFoot, timestamp: timestamp))
 
         // Trim to window duration
         leftAnkleSamples = leftAnkleSamples.filter { timestamp - $0.timestamp <= windowDurationSec * 2 }
@@ -154,9 +185,13 @@ final class DefaultGaitAnalyzer: GaitAnalyzer {
         recentPositions.append((pos: root, time: timestamp))
         recentPositions = recentPositions.filter { timestamp - $0.time <= speedWindowSec }
 
-        // Track max foot height during swing for clearance
-        leftMaxSwingY = max(leftMaxSwingY, leftFoot.y)
-        rightMaxSwingY = max(rightMaxSwingY, rightFoot.y)
+        // Track max foot height during swing for clearance (use filtered values)
+        leftMaxSwingY = max(leftMaxSwingY, filteredLeftY)
+        rightMaxSwingY = max(rightMaxSwingY, filteredRightY)
+
+        // Estimate toe-off from foot velocity (upward velocity exceeds threshold)
+        detectToeOff(samples: leftAnkleSamples, lastToeOffTime: &lastLeftToeOffTime, timestamp: timestamp)
+        detectToeOff(samples: rightAnkleSamples, lastToeOffTime: &lastRightToeOffTime, timestamp: timestamp)
 
         // Detect steps
         var detectedStrike: FootStrike?
@@ -260,6 +295,10 @@ final class DefaultGaitAnalyzer: GaitAnalyzer {
         lastRightStrikePos = nil
         lastLeftContactPos = nil
         lastRightContactPos = nil
+        leftAnkleEMA = nil
+        rightAnkleEMA = nil
+        lastLeftToeOffTime = -1
+        lastRightToeOffTime = -1
         leftMaxSwingY = 0
         rightMaxSwingY = 0
     }
@@ -395,7 +434,8 @@ final class DefaultGaitAnalyzer: GaitAnalyzer {
         return elapsed > 0 ? Double(stepTimestamps.count - 1) / elapsed * 60.0 : 0
     }
 
-    /// Walking speed from root displacement over time.
+    /// Walking speed from cumulative root path length over time.
+    /// Uses sum of inter-frame displacements for accuracy on curved paths.
     /// Ref: Studenski S et al., JAMA, 2011.
     private func computeWalkingSpeed() -> Double {
         guard recentPositions.count >= 2,
@@ -403,8 +443,12 @@ final class DefaultGaitAnalyzer: GaitAnalyzer {
               let last = recentPositions.last else { return 0 }
         let elapsed = last.time - first.time
         guard elapsed > 0.5 else { return 0 }
-        let distance = Double(first.pos.xzDistance(to: last.pos))
-        return distance / elapsed
+        // Cumulative path length in XZ plane
+        var pathLength: Double = 0
+        for i in 1..<recentPositions.count {
+            pathLength += Double(recentPositions[i].pos.xzDistance(to: recentPositions[i-1].pos))
+        }
+        return pathLength / elapsed
     }
 
     /// Robinson Symmetry Index: |L - R| / (0.5 * (L + R)) * 100
@@ -418,11 +462,11 @@ final class DefaultGaitAnalyzer: GaitAnalyzer {
         return abs(avgLeft - avgRight) / mean * 100
     }
 
-    /// Estimate temporal gait parameters from stride intervals.
+    /// Estimate temporal gait parameters from bilateral heel-strike and toe-off timing.
+    /// Uses velocity-based toe-off estimation for stance/swing discrimination.
     /// Normal: ~60% stance, ~40% swing, ~20-30% double support.
     /// Ref: Perry J, Gait Analysis, 1992.
     private func computeTemporalParameters() -> (stance: Double?, swing: Double?, doubleSupport: Double?) {
-        // With bilateral heel strike timing, we can estimate temporal parameters
         guard leftStrideIntervals.count >= 2, rightStrideIntervals.count >= 2 else {
             return (nil, nil, nil)
         }
@@ -430,33 +474,84 @@ final class DefaultGaitAnalyzer: GaitAnalyzer {
         let avgLeftStride = leftStrideIntervals.reduce(0, +) / Double(leftStrideIntervals.count)
         let avgRightStride = rightStrideIntervals.reduce(0, +) / Double(rightStrideIntervals.count)
         let avgStride = (avgLeftStride + avgRightStride) / 2.0
+        guard avgStride > 0 else { return (nil, nil, nil) }
 
-        // Using Perry's normal proportions as starting point, adjusted by step timing
-        // In a symmetric gait: stance ≈ 60%, swing ≈ 40%, double support ≈ 20%
-        // The ratio of step time to stride time gives the proportion of swing
-        // When we have both sides, step time = time from one foot contact to contralateral contact
-        let cadence = computeCadence()
-        guard cadence > 0 else { return (nil, nil, nil) }
+        // Estimate stance time from heel-strike to toe-off timing
+        // If toe-off times are available, use them for direct calculation
+        // Otherwise, estimate from contralateral step timing
+        let leftStance: Double
+        let rightStance: Double
 
-        // Approximate step time = stride time / 2 (for symmetric gait)
-        let stepTime = avgStride / 2.0
-        // Swing time ≈ step time (the swing of one foot occurs during the step of the other)
-        let swingPercent = (stepTime / avgStride) * 100
-        let stancePercent = 100.0 - swingPercent
-        // Double support ≈ (stance% - 50%) * 2, bounded
+        if lastLeftToeOffTime > 0 && lastLeftStrikeTime > 0 && lastLeftToeOffTime > lastLeftStrikeTime {
+            // Direct measurement: stance = toe-off - heel-strike
+            leftStance = (lastLeftToeOffTime - lastLeftStrikeTime) / avgLeftStride * 100
+        } else {
+            // Estimate from contralateral step time ratio
+            // In normal gait, stance ≈ stride_time - contralateral_step_time * 0.8
+            let avgRightStep = avgRightStride / 2.0
+            leftStance = max(50, min(70, (1.0 - avgRightStep / avgLeftStride * 0.8) * 100))
+        }
+
+        if lastRightToeOffTime > 0 && lastRightStrikeTime > 0 && lastRightToeOffTime > lastRightStrikeTime {
+            rightStance = (lastRightToeOffTime - lastRightStrikeTime) / avgRightStride * 100
+        } else {
+            let avgLeftStep = avgLeftStride / 2.0
+            rightStance = max(50, min(70, (1.0 - avgLeftStep / avgRightStride * 0.8) * 100))
+        }
+
+        let stancePercent = (leftStance + rightStance) / 2.0
+        let swingPercent = 100.0 - stancePercent
+        // Double support = sum of both double-support phases per cycle
+        // Occurs when both feet are on the ground: DS = 2 * (stance% - 50%)
         let doubleSupport = max(0, min(50, (stancePercent - 50) * 2))
 
         return (stancePercent, swingPercent, doubleSupport)
     }
 
-    /// Coefficient of variation of stride time. CV > 5% predicts falls.
+    /// Detect toe-off event from upward foot velocity exceeding threshold.
+    /// Toe-off marks the transition from stance to swing phase.
+    private func detectToeOff(
+        samples: [TimedSample],
+        lastToeOffTime: inout TimeInterval,
+        timestamp: TimeInterval
+    ) {
+        guard samples.count >= 3 else { return }
+        // Check velocity of last few samples
+        let recent = samples.suffix(3)
+        let recentArr = Array(recent)
+        let prev = recentArr[recentArr.count - 2]
+        let curr = recentArr[recentArr.count - 1]
+        let dt = Float(curr.timestamp - prev.timestamp)
+        guard dt > 0 else { return }
+        let vy = (curr.position.y - prev.position.y) / dt  // positive = upward
+        // Toe-off: foot moving upward with sufficient velocity
+        let toeOffVelocityThreshold: Float = 0.08  // m/s upward
+        if vy > toeOffVelocityThreshold && timestamp - lastToeOffTime > refractoryPeriodSec {
+            lastToeOffTime = timestamp
+        }
+    }
+
+    /// Coefficient of variation of stride time, computed separately per side then averaged.
+    /// Separating L/R prevents conflating asymmetry with variability.
+    /// CV > 5% predicts falls.
     /// Ref: Hausdorff JM et al., J Neuroengineering Rehab, 2005.
     private func computeStrideTimeCV() -> Double? {
-        let allIntervals = leftStrideIntervals + rightStrideIntervals
-        guard allIntervals.count >= 4 else { return nil }
-        let mean = allIntervals.reduce(0, +) / Double(allIntervals.count)
+        // Compute CV per side separately, then average
+        let leftCV = computeSingleSideCV(leftStrideIntervals)
+        let rightCV = computeSingleSideCV(rightStrideIntervals)
+
+        if let l = leftCV, let r = rightCV {
+            return (l + r) / 2.0
+        }
+        return leftCV ?? rightCV
+    }
+
+    /// CV for one side's stride intervals.
+    private func computeSingleSideCV(_ intervals: [Double]) -> Double? {
+        guard intervals.count >= 3 else { return nil }
+        let mean = intervals.reduce(0, +) / Double(intervals.count)
         guard mean > 0 else { return nil }
-        let variance = allIntervals.reduce(0.0) { $0 + ($1 - mean) * ($1 - mean) } / Double(allIntervals.count)
+        let variance = intervals.reduce(0.0) { $0 + ($1 - mean) * ($1 - mean) } / Double(intervals.count)
         let sd = sqrt(variance)
         return (sd / mean) * 100
     }

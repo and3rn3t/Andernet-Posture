@@ -120,7 +120,34 @@ final class DefaultInsightsEngine: InsightsEngine {
         }
 
         AppLogger.analysis.debug("InsightsEngine generated \(insights.count) insights from \(sessions.count) sessions")
-        return insights
+        return filterContradictions(insights)
+    }
+
+    // MARK: - Contradiction Filter
+
+    /// Remove contradictory insights (e.g., "Posture Improving" and "Forward Head Posture Increasing"
+    /// appearing simultaneously). When both a positive and negative insight exist for the same
+    /// clinical domain, keep the more severe one for patient safety.
+    private func filterContradictions(_ insights: [Insight]) -> [Insight] {
+        var result = insights
+
+        // Define contradiction pairs: (positive title, negative title)
+        let contradictions: [(String, String)] = [
+            ("Posture Improving", "Posture Declining"),
+            ("Head Posture Improving", "Forward Head Posture Increasing"),
+            ("Ergonomic Risk Improved", "Ergonomic Risk Increased"),
+        ]
+
+        for (positive, negative) in contradictions {
+            let hasPositive = result.contains { $0.title == positive }
+            let hasNegative = result.contains { $0.title == negative }
+            if hasPositive && hasNegative {
+                // Keep the negative (more clinically conservative) and remove positive
+                result.removeAll { $0.title == positive }
+            }
+        }
+
+        return result
     }
 
     // MARK: - Individual Insight Generators

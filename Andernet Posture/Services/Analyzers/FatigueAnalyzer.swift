@@ -162,14 +162,24 @@ final class DefaultFatigueAnalyzer: FatigueAnalyzer {
             fatigueIndex += min(15, leanTrend.slope * 50)
         }
 
-        // Speed decrease (15% weight)
+        // Speed decrease (10% weight)
         if speedTrend.slope < 0 {
-            fatigueIndex += min(15, abs(speedTrend.slope) * 100)
+            fatigueIndex += min(10, abs(speedTrend.slope) * 100)
         }
 
-        // Lateral sway increase (10% weight)
+        // Cadence change (10% weight)
+        // Fatigue can manifest as compensatory cadence increase (shorter, faster steps)
+        // or cadence decrease (slowing down). Both patterns indicate fatigue.
+        let cadenceFirstAvg = average(Array(cadences.prefix(thirdSize)))
+        let cadenceLastAvg = average(Array(cadences.suffix(thirdSize)))
+        let cadenceChangePct = cadenceFirstAvg > 0 ? abs(cadenceLastAvg - cadenceFirstAvg) / cadenceFirstAvg * 100 : 0
+        if cadenceChangePct > 5 {
+            fatigueIndex += min(10, cadenceChangePct * 1.5)
+        }
+
+        // Lateral sway increase (5% weight)
         if lateralTrend.slope > 0 {
-            fatigueIndex += min(10, lateralTrend.slope * 50)
+            fatigueIndex += min(5, lateralTrend.slope * 25)
         }
 
         let isFatigued = fatigueIndex > 25 ||

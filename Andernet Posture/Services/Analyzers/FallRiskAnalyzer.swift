@@ -189,11 +189,16 @@ final class DefaultFallRiskAnalyzer: FallRiskAnalyzer {
             ))
         }
 
-        // Composite: weighted sum, normalized by total available weight
+        // Composite: weighted sum, normalized by total available weight.
+        // Require minimum 3 factors for reliable composite; otherwise report uncertainty.
         let totalWeight = factors.reduce(0.0) { $0 + $1.weight }
         let composite: Double
         if totalWeight > 0 {
-            composite = factors.reduce(0.0) { $0 + $1.subScore * $1.weight } / totalWeight
+            let rawComposite = factors.reduce(0.0) { $0 + $1.subScore * $1.weight } / totalWeight
+            // Scale confidence by factor coverage to avoid inflating risk from sparse data.
+            // With fewer than 3 factors, attenuate the composite proportionally.
+            let coverageFraction = min(1.0, Double(factors.count) / 3.0)
+            composite = rawComposite * coverageFraction
         } else {
             composite = 0
         }

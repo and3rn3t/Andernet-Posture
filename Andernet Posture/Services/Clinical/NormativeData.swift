@@ -124,6 +124,8 @@ enum NormativeData {
         [
             NormativeBand(metric: .strideLength, ageRange: 20...29, sex: .male,   normalRange: 1.25...1.46, mildLow: 1.0, mildHigh: nil),
             NormativeBand(metric: .strideLength, ageRange: 20...29, sex: .female, normalRange: 1.10...1.28, mildLow: 0.9, mildHigh: nil),
+            NormativeBand(metric: .strideLength, ageRange: 30...39, sex: .male,   normalRange: 1.22...1.46, mildLow: 1.0, mildHigh: nil),
+            NormativeBand(metric: .strideLength, ageRange: 30...39, sex: .female, normalRange: 1.08...1.28, mildLow: 0.88, mildHigh: nil),
             NormativeBand(metric: .strideLength, ageRange: 40...49, sex: .male,   normalRange: 1.20...1.44, mildLow: 1.0, mildHigh: nil),
             NormativeBand(metric: .strideLength, ageRange: 40...49, sex: .female, normalRange: 1.05...1.26, mildLow: 0.85, mildHigh: nil),
             NormativeBand(metric: .strideLength, ageRange: 60...69, sex: .male,   normalRange: 1.10...1.32, mildLow: 0.9, mildHigh: nil),

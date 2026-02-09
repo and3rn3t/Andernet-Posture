@@ -12,6 +12,7 @@
 //
 
 import Foundation
+import Accelerate
 
 // MARK: - Results
 
@@ -100,9 +101,9 @@ final class DefaultSmoothnessAnalyzer: SmoothnessAnalyzer {
         // SPARC
         let sparc = computeSPARC(signal: magnitudes, fs: fs)
 
-        // Harmonic Ratio
-        let hrAP = computeHarmonicRatio(signal: samples.map(\.ap), fs: fs)
-        let hrML = computeHarmonicRatio(signal: samples.map(\.ml), fs: fs)
+        // Harmonic Ratio — AP uses even/odd, ML uses odd/even (Menz et al., 2003)
+        let hrAP = computeHarmonicRatio(signal: samples.map(\.ap), fs: fs, isML: false)
+        let hrML = computeHarmonicRatio(signal: samples.map(\.ml), fs: fs, isML: true)
 
         // Normalized Jerk
         let jerk = computeNormalizedJerk(signal: magnitudes, fs: fs, duration: totalTime)
@@ -121,20 +122,88 @@ final class DefaultSmoothnessAnalyzer: SmoothnessAnalyzer {
 
     // MARK: - SPARC (Spectral Arc Length)
 
-    /// Compute SPARC: the arc length of the frequency spectrum of the speed profile.
+    /// Compute SPARC: the arc length of the normalized frequency spectrum of the speed profile.
     /// More negative = less smooth.
+    /// Uses Accelerate framework vDSP FFT for O(n log n) performance.
     /// Ref: Balasubramanian S et al., 2015.
     private func computeSPARC(signal: [Double], fs: Double) -> Double {
         let n = signal.count
         guard n >= 4 else { return 0 }
 
-        // Simple DFT magnitude spectrum (we avoid vDSP dependency for portability)
         let nfft = nextPowerOfTwo(n)
         let freqResolution = fs / Double(nfft)
         let maxFreq = min(20.0, fs / 2) // Limit to 20 Hz (gait relevant)
         let maxBin = Int(maxFreq / freqResolution)
 
-        // Compute DFT magnitudes for relevant bins
+        // Compute FFT using Accelerate framework
+        let spectrum = computeFFTMagnitudes(signal: signal, nfft: nfft, maxBin: maxBin)
+        guard !spectrum.isEmpty else { return 0 }
+
+        // Normalize spectrum
+        guard let maxMag = spectrum.max(), maxMag > 1e-10 else { return 0 }
+        let normalized = spectrum.map { $0 / maxMag }
+
+        // Arc length of normalized spectrum in normalized frequency domain
+        // Frequency spacing in normalized domain: df_norm = freqResolution / maxFreq
+        // Ref: Balasubramanian 2015 — arc length in normalized (ω̂) space
+        var arcLength = 0.0
+        let dfNorm = maxFreq > 0 ? freqResolution / maxFreq : 1.0
+        for i in 1..<normalized.count {
+            let dMag = normalized[i] - normalized[i-1]
+            arcLength += sqrt(dfNorm * dfNorm + dMag * dMag)
+        }
+
+        return -arcLength // Negative: more negative = less smooth
+    }
+
+    /// Compute FFT magnitudes using Accelerate vDSP for O(n log n) performance.
+    /// Falls back to manual DFT for non-power-of-two or very small arrays.
+    private func computeFFTMagnitudes(signal: [Double], nfft: Int, maxBin: Int) -> [Double] {
+        let n = signal.count
+
+        // Pad signal to nfft length
+        var padded = [Double](repeating: 0, count: nfft)
+        for i in 0..<min(n, nfft) { padded[i] = signal[i] }
+
+        // Use vDSP for FFT
+        let halfN = nfft / 2
+        guard let fftSetup = vDSP_create_fftsetupD(vDSP_Length(log2(Double(nfft))), FFTRadix(kFFTRadix2)) else {
+            // Fallback to manual DFT
+            return computeDFTMagnitudes(signal: signal, n: n, nfft: nfft, maxBin: maxBin)
+        }
+        defer { vDSP_destroy_fftsetupD(fftSetup) }
+
+        // Split complex format
+        var realp = [Double](repeating: 0, count: halfN)
+        var imagp = [Double](repeating: 0, count: halfN)
+
+        // Convert to split complex
+        padded.withUnsafeBufferPointer { ptr in
+            ptr.baseAddress!.withMemoryRebound(to: DSPDoubleComplex.self, capacity: halfN) { complexPtr in
+                var splitComplex = DSPDoubleSplitComplex(realp: &realp, imagp: &imagp)
+                vDSP_ctozD(complexPtr, 2, &splitComplex, 1, vDSP_Length(halfN))
+            }
+        }
+
+        // Perform FFT
+        var splitComplex = DSPDoubleSplitComplex(realp: &realp, imagp: &imagp)
+        vDSP_fft_zripD(fftSetup, &splitComplex, 1, vDSP_Length(log2(Double(nfft))), FFTDirection(FFT_FORWARD))
+
+        // Extract magnitudes for bins 0..maxBin
+        let binCount = min(maxBin + 1, halfN)
+        var magnitudes = [Double](repeating: 0, count: binCount)
+        let scale = 1.0 / Double(nfft)
+        for k in 0..<binCount {
+            let re = realp[k] * scale
+            let im = imagp[k] * scale
+            magnitudes[k] = sqrt(re * re + im * im)
+        }
+
+        return magnitudes
+    }
+
+    /// Fallback manual DFT for when Accelerate FFT setup fails.
+    private func computeDFTMagnitudes(signal: [Double], n: Int, nfft: Int, maxBin: Int) -> [Double] {
         var spectrum: [Double] = []
         for k in 0...min(maxBin, nfft / 2) {
             var real = 0.0, imag = 0.0
@@ -146,37 +215,25 @@ final class DefaultSmoothnessAnalyzer: SmoothnessAnalyzer {
             let mag = sqrt(real * real + imag * imag) / Double(n)
             spectrum.append(mag)
         }
-
-        // Normalize spectrum
-        guard let maxMag = spectrum.max(), maxMag > 1e-10 else { return 0 }
-        let normalized = spectrum.map { $0 / maxMag }
-
-        // Arc length of normalized spectrum
-        var arcLength = 0.0
-        let df = 1.0 / (maxFreq > 0 ? maxFreq : 1)
-        for i in 1..<normalized.count {
-            let dMag = normalized[i] - normalized[i-1]
-            arcLength += sqrt(df * df + dMag * dMag)
-        }
-
-        return -arcLength // Negative: more negative = less smooth
+        return spectrum
     }
 
     // MARK: - Harmonic Ratio
 
-    /// Compute harmonic ratio: ratio of even to odd harmonics.
-    /// For AP/vertical: even/odd. For ML: odd/even (due to bilateral symmetry).
+    /// Compute harmonic ratio: ratio of even to odd harmonics (AP/vertical),
+    /// or odd to even (ML) due to bilateral symmetry of mediolateral acceleration.
     /// Higher values indicate smoother, more symmetric gait.
-    private func computeHarmonicRatio(signal: [Double], fs: Double) -> Double {
+    /// Ref: Menz HB et al., Gait & Posture, 2003.
+    private func computeHarmonicRatio(signal: [Double], fs: Double, isML: Bool) -> Double {
         let n = signal.count
         guard n >= 4 else { return 0 }
 
         // Compute first 20 harmonics via DFT
         let nHarmonics = 20
 
-        // Estimate fundamental frequency (stride frequency ~0.8–1.2 Hz during walking)
-        // Use stride frequency ≈ 1.0 Hz as starting estimate
-        let strideFundamental = 1.0  // Hz
+        // Estimate fundamental stride frequency from power spectrum peak detection
+        // rather than using a hardcoded value. Stride frequency typically 0.7–1.3 Hz.
+        let strideFundamental = estimateStrideFundamental(signal: signal, fs: fs)
         let binSize = fs / Double(n)
 
         var harmonicMags: [Double] = Array(repeating: 0, count: nHarmonics)
@@ -204,8 +261,46 @@ final class DefaultSmoothnessAnalyzer: SmoothnessAnalyzer {
             }
         }
 
-        guard oddSum > 1e-10 else { return 0 }
-        return evenSum / oddSum
+        // AP/Vertical: even/odd (bilaterally symmetric signal has dominant even harmonics)
+        // ML: odd/even (bilaterally symmetric ML has dominant odd harmonics)
+        // Ref: Menz HB et al., 2003
+        if isML {
+            guard evenSum > 1e-10 else { return 0 }
+            return oddSum / evenSum
+        } else {
+            guard oddSum > 1e-10 else { return 0 }
+            return evenSum / oddSum
+        }
+    }
+
+    /// Estimate fundamental stride frequency from the power spectrum.
+    /// Finds the dominant frequency in the 0.7–1.3 Hz range.
+    /// Falls back to 1.0 Hz if detection fails.
+    private func estimateStrideFundamental(signal: [Double], fs: Double) -> Double {
+        let n = signal.count
+        let binSize = fs / Double(n)
+        let minBin = max(1, Int(0.7 / binSize))
+        let maxBin = min(n / 2 - 1, Int(1.3 / binSize))
+        guard minBin < maxBin else { return 1.0 }
+
+        var maxPower = 0.0
+        var peakBin = Int(1.0 / binSize)  // default to 1 Hz
+
+        for k in minBin...maxBin {
+            var real = 0.0, imag = 0.0
+            for i in 0..<n {
+                let angle = -2.0 * Double.pi * Double(k) * Double(i) / Double(n)
+                real += signal[i] * cos(angle)
+                imag += signal[i] * sin(angle)
+            }
+            let power = real * real + imag * imag
+            if power > maxPower {
+                maxPower = power
+                peakBin = k
+            }
+        }
+
+        return Double(peakBin) * binSize
     }
 
     // MARK: - Normalized Jerk

@@ -147,10 +147,10 @@ final class DefaultCardioEstimator: CardioEstimator {
             let heightCm = height * 100
             if male {
                 // Men: 6MWD = (7.57 × height_cm) – (5.02 × age) – (1.76 × weight_kg) – 309
-                predicted = 7.57 * heightCm - 5.02 * Double(age) - 1.76 * weight - 309
+                predicted = max(0, 7.57 * heightCm - 5.02 * Double(age) - 1.76 * weight - 309)
             } else {
                 // Women: 6MWD = (2.11 × height_cm) – (2.29 × weight_kg) – (5.78 × age) + 667
-                predicted = 2.11 * heightCm - 2.29 * weight - 5.78 * Double(age) + 667
+                predicted = max(0, 2.11 * heightCm - 2.29 * weight - 5.78 * Double(age) + 667)
             }
         }
 

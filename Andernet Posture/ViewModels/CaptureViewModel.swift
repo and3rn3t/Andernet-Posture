@@ -287,7 +287,8 @@ final class CaptureViewModel {
             walkingSpeedMPS: walkingSpeedMPS,
             strideLengthM: avgStrideLengthM,
             hipFlexionROMDeg: romSummary.hipROMLeftDeg,
-            armSwingAsymmetryPercent: romSummary.armSwingAsymmetryPercent
+            armSwingAsymmetryPercent: romSummary.armSwingAsymmetryPercent,
+            kneeFlexionROMDeg: max(romSummary.kneeROMLeftDeg, romSummary.kneeROMRightDeg)
         )
         session.gaitPatternClassification = gaitPattern.primaryPattern.rawValue
 
