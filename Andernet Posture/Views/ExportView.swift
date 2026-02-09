@@ -136,15 +136,15 @@ struct ExportView: View {
     private var generatingOverlay: some View {
         ZStack {
             Color.black.opacity(0.25).ignoresSafeArea()
-            VStack(spacing: 12) {
+            VStack(spacing: AppSpacing.md) {
                 ProgressView()
                     .controlSize(.large)
-                Text("Generating…")
+                Text("Generating\u{2026}")
                     .font(.callout)
                     .foregroundStyle(.secondary)
             }
-            .padding(30)
-            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
+            .padding(AppSpacing.xxxl)
+            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: AppRadius.medium))
         }
     }
 
@@ -275,15 +275,15 @@ struct MultiSessionExportView: View {
     private var generatingOverlay: some View {
         ZStack {
             Color.black.opacity(0.25).ignoresSafeArea()
-            VStack(spacing: 12) {
+            VStack(spacing: AppSpacing.md) {
                 ProgressView()
                     .controlSize(.large)
-                Text("Generating…")
+                Text("Generating\u{2026}")
                     .font(.callout)
                     .foregroundStyle(.secondary)
             }
-            .padding(30)
-            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
+            .padding(AppSpacing.xxxl)
+            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: AppRadius.medium))
         }
     }
 

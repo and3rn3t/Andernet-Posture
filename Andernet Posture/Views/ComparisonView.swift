@@ -25,15 +25,16 @@ struct ComparisonView: View {
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 20) {
+            VStack(spacing: AppSpacing.xl) {
                 dateHeader
                 metricsGrid
                 comparisonChartsSection
             }
-            .padding()
+            .padding(AppSpacing.lg)
         }
         .navigationTitle("Compare Sessions")
         .navigationBarTitleDisplayMode(.large)
+        .reduceMotionAware()
     }
 
     // MARK: - Date Header
@@ -41,51 +42,59 @@ struct ComparisonView: View {
     @ViewBuilder
     private var dateHeader: some View {
         HStack {
-            sessionLabel(
-                title: "Baseline",
-                date: baseline.date,
-                color: .blue
-            )
+            VStack(spacing: AppSpacing.sm) {
+                Text("Baseline")
+                    .font(.caption.bold())
+                    .foregroundStyle(.blue)
+                if let score = baseline.postureScore {
+                    ScoreRingView(score: score, size: 48, lineWidth: 5, showLabel: false)
+                        .overlay {
+                            Text("\(Int(score))")
+                                .font(AppFonts.metricValue(.caption))
+                        }
+                }
+                Text(baseline.date.formatted(date: .abbreviated, time: .omitted))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
             Spacer()
+
             Image(systemName: "arrow.right")
                 .font(.title3)
                 .foregroundStyle(.secondary)
-            Spacer()
-            sessionLabel(
-                title: "Current",
-                date: current.date,
-                color: .orange
-            )
-        }
-        .padding()
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
-    }
 
-    @ViewBuilder
-    private func sessionLabel(
-        title: String,
-        date: Date,
-        color: Color
-    ) -> some View {
-        VStack(spacing: 4) {
-            Text(title)
-                .font(.caption.bold())
-                .foregroundStyle(color)
-            Text(date.formatted(date: .abbreviated, time: .omitted))
-                .font(.subheadline)
+            Spacer()
+
+            VStack(spacing: AppSpacing.sm) {
+                Text("Current")
+                    .font(.caption.bold())
+                    .foregroundStyle(.orange)
+                if let score = current.postureScore {
+                    ScoreRingView(score: score, size: 48, lineWidth: 5, showLabel: false)
+                        .overlay {
+                            Text("\(Int(score))")
+                                .font(AppFonts.metricValue(.caption))
+                        }
+                }
+                Text(current.date.formatted(date: .abbreviated, time: .omitted))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
         }
+        .padding(AppSpacing.lg)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: AppRadius.medium))
+        .appShadow(.card)
     }
 
     // MARK: - Metrics Grid
 
     @ViewBuilder
     private var metricsGrid: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Label("Summary Comparison", systemImage: "chart.bar.doc.horizontal")
-                .font(.headline)
-
-            metricRow(
-                label: "Posture Score",
+        SectionCard(title: "Summary Comparison", icon: "chart.bar.doc.horizontal") {
+            VStack(spacing: AppSpacing.sm) {
+                metricRow(
+                    label: "Posture Score",
                 baseVal: baseline.postureScore,
                 curVal: current.postureScore,
                 format: "%.0f",
@@ -126,9 +135,8 @@ struct ComparisonView: View {
                 format: "%.0f",
                 higherIsBetter: false
             )
+            }
         }
-        .padding()
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
     }
 
     @ViewBuilder
@@ -161,6 +169,11 @@ struct ComparisonView: View {
             )
             .frame(width: 30)
         }
+        .clinicalMetricAccessibility(
+            label: label,
+            value: "\(baseVal.map { String(format: format, $0) } ?? "none") to \(curVal.map { String(format: format, $0) } ?? "none")",
+            severity: nil
+        )
         Divider()
     }
 
@@ -259,10 +272,7 @@ struct ComparisonView: View {
             ? (fallback?(currentVM) ?? []) : curData
 
         if !bData.isEmpty || !cData.isEmpty {
-            VStack(alignment: .leading, spacing: 8) {
-                Text(title)
-                    .font(.headline)
-
+            ChartCard(title: title, icon: "chart.xyaxis.line") {
                 Chart {
                     ForEach(bData) { pt in
                         LineMark(
@@ -308,7 +318,6 @@ struct ComparisonView: View {
                     "Current": Color.orange
                 ])
                 .chartLegend(position: .bottom)
-                .frame(height: 200)
                 .accessibilityChartDescriptor(
                     ComparisonChartDescriptor(
                         title: title,
@@ -318,8 +327,10 @@ struct ComparisonView: View {
                     )
                 )
             }
-            .padding()
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+            .accessibleChart(
+                title: "\(title) Comparison",
+                summary: "Overlay of baseline vs current \(title.lowercased())."
+            )
         }
     }
 }

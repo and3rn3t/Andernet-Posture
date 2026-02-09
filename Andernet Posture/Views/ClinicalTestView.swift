@@ -24,6 +24,7 @@ struct ClinicalTestView: View {
             }
             .navigationTitle("Clinical Tests")
             .navigationBarTitleDisplayMode(.large)
+            .reduceMotionAware()
         }
     }
 

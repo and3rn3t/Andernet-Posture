@@ -15,6 +15,7 @@ struct SessionListView: View {
     @State private var selectedForCompare: Set<PersistentIdentifier> = []
     @State private var navigateToComparison = false
     @State private var searchText = ""
+    @Namespace private var sessionNamespace
 
     /// The two sessions chosen for comparison (baseline = earlier date).
     private var comparisonPair: (GaitSession, GaitSession)? {
@@ -109,6 +110,7 @@ struct SessionListView: View {
             .navigationDestination(for: GaitSession.self) { session in
                 SessionDetailView(session: session)
             }
+            .navigationTransition(.zoom(sourceID: "session", in: sessionNamespace))
             .navigationDestination(isPresented: $navigateToComparison) {
                 if let pair = comparisonPair {
                     ComparisonView(baseline: pair.0, current: pair.1)
@@ -117,6 +119,7 @@ struct SessionListView: View {
                 }
             }
             .toolbar(content: sessionToolbar)
+            .sensoryFeedback(.selection, trigger: compareMode)
         }
     }
 
@@ -229,6 +232,8 @@ private struct SessionRow: View {
             }
         }
         .padding(.vertical, AppSpacing.xs)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(session.accessibilitySummary)
     }
 }
 

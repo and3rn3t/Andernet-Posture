@@ -64,6 +64,19 @@ struct MetricCard: View {
         .padding(compact ? AppSpacing.md : AppSpacing.lg)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: AppRadius.medium))
         .appShadow(.card)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(accessibilityDescription)
+    }
+
+    private var accessibilityDescription: String {
+        var parts = [title, value]
+        if let subtitle { parts.append(subtitle) }
+        if let severity { parts.append(severity.accessibilityDescription) }
+        if let trendDelta {
+            let direction = trendDelta >= 0 ? "up" : "down"
+            parts.append("trending \(direction) \(String(format: "%.0f", abs(trendDelta))) percent")
+        }
+        return parts.joined(separator: ", ")
     }
 }
 

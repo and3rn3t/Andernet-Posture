@@ -81,6 +81,7 @@ struct SessionDetailView: View {
         }
         .navigationTitle(viewModel.session.date.formatted(date: .abbreviated, time: .shortened))
         .navigationBarTitleDisplayMode(.large)
+        .reduceMotionAware()
         .toolbar {
             if viewModel.session.framesData != nil {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -144,6 +145,11 @@ struct SessionDetailView: View {
                     }
                 }
                 .padding(.vertical, AppSpacing.xs)
+                .clinicalMetricAccessibility(
+                    label: item.label,
+                    value: item.value,
+                    severity: item.severity
+                )
 
                 if item.id != items.last?.id {
                     Divider()
@@ -308,6 +314,10 @@ struct SessionDetailView: View {
                 SessionChartDescriptor(title: title, data: data, unit: unit)
             )
         }
+        .accessibleChart(
+            title: title,
+            summary: "Time series of \(title.lowercased()) during this session."
+        )
     }
 
     // MARK: - Dual Series Chart (Left/Right)

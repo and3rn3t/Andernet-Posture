@@ -33,12 +33,12 @@ struct SessionPlaybackView: View {
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 20) {
+            VStack(spacing: AppSpacing.xl) {
                 metricsPanel
                 transportControls
                 miniChartSection
             }
-            .padding()
+            .padding(AppSpacing.lg)
         }
         .navigationTitle("Playback")
         .navigationBarTitleDisplayMode(.inline)
@@ -54,7 +54,7 @@ struct SessionPlaybackView: View {
             LazyVGrid(columns: [
                 GridItem(.flexible()),
                 GridItem(.flexible())
-            ], spacing: 10) {
+            ], spacing: AppSpacing.md) {
                 metricCard(
                     label: "Posture Score",
                     value: String(format: "%.0f", f.postureScore),
@@ -101,29 +101,32 @@ struct SessionPlaybackView: View {
         value: String,
         icon: String
     ) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: AppSpacing.xs) {
             Label(label, systemImage: icon)
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
             Text(value)
-                .font(.title3.bold().monospacedDigit())
+                .font(AppFonts.metricValue(.title3))
+                .contentTransition(.numericText())
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding()
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
+        .padding(AppSpacing.lg)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: AppRadius.small))
+        .appShadow(.card)
     }
 
     // MARK: - Transport Controls
 
     @ViewBuilder
     private var transportControls: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: AppSpacing.md) {
             // Progress bar
             HStack {
                 Text(formatTime(currentTime))
                     .font(.caption.monospacedDigit())
                     .foregroundStyle(.secondary)
+                    .contentTransition(.numericText())
                 Spacer()
                 Text(formatTime(totalDuration))
                     .font(.caption.monospacedDigit())
@@ -147,7 +150,7 @@ struct SessionPlaybackView: View {
             )
 
             // Play / Pause
-            HStack(spacing: 24) {
+            HStack(spacing: AppSpacing.xxl) {
                 Button {
                     skipBackward()
                 } label: {
@@ -174,8 +177,9 @@ struct SessionPlaybackView: View {
                 .accessibilityLabel("Skip forward 5 seconds")
             }
         }
-        .padding()
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+        .padding(AppSpacing.lg)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: AppRadius.medium))
+        .appShadow(.card)
     }
 
     // MARK: - Mini Chart
@@ -183,10 +187,7 @@ struct SessionPlaybackView: View {
     @ViewBuilder
     private var miniChartSection: some View {
         if frames.count > 1 {
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Session Trajectory")
-                    .font(.headline)
-
+            ChartCard(title: "Session Trajectory", icon: "waveform.path.ecg") {
                 Chart {
                     ForEach(chartData) { pt in
                         LineMark(
@@ -215,10 +216,11 @@ struct SessionPlaybackView: View {
                 }
                 .chartXAxisLabel("Time (sec)")
                 .chartYAxisLabel("Score")
-                .frame(height: 160)
             }
-            .padding()
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+            .accessibleChart(
+                title: "Session Trajectory",
+                summary: "Posture score over time during session playback."
+            )
         }
     }
 

@@ -148,6 +148,7 @@ struct DashboardView: View {
             .refreshable {
                 viewModel.refresh(sessions: sessions)
             }
+            .reduceMotionAware()
             .navigationTitle("Dashboard")
             .onAppear {
                 viewModel.refresh(sessions: sessions)
@@ -328,6 +329,10 @@ struct DashboardView: View {
             .chartYAxisLabel(unit)
             .accessibilityChartDescriptor(TrendChartDescriptor(title: title, data: data, unit: unit))
         }
+        .accessibleChart(
+            title: "\(title) Trend",
+            summary: "Shows \(title.lowercased()) over your last \(data.count) sessions."
+        )
     }
 
     // MARK: - Helpers

@@ -57,6 +57,7 @@ struct OnboardingView: View {
                     .padding(.bottom, AppSpacing.xxl)
             }
         }
+        .reduceMotionAware()
     }
 
     // MARK: - Custom Page Indicator

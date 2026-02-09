@@ -78,6 +78,7 @@ struct PostureGaitCaptureView: View {
         }
         .animation(.easeInOut(duration: 0.3), value: captureStarted)
         .animation(.easeInOut(duration: 0.3), value: viewModel.recordingState)
+        .reduceMotionAware()
         .statusBarHidden()
         .onChange(of: viewModel.isBodyDetected) { evaluateCoachingTip() }
         .onChange(of: viewModel.postureScore) { evaluateCoachingTip() }
@@ -87,6 +88,7 @@ struct PostureGaitCaptureView: View {
         } message: {
             Text("Your posture and gait data has been recorded.")
         }
+        .sensoryFeedback(.success, trigger: showSavedAlert)
     }
 
     // MARK: - Top Metrics
