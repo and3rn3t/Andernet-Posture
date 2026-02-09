@@ -250,7 +250,7 @@ struct ClinicalTestView: View {
                                 .font(AppFonts.metricValue(.title))
                                 .contentTransition(.numericText())
                             Text("Distance")
-                                .font(AppFonts.metricLabel)
+                                .font(AppFonts.metricLabel())
                                 .foregroundStyle(.secondary)
                         }
                         Spacer()

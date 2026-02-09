@@ -26,7 +26,7 @@ struct TrendIndicator: View {
             Text(String(format: "%.1f%%", abs(delta)))
                 .font(.caption2.weight(.semibold).monospacedDigit())
         }
-        .foregroundStyle(abs(delta) < 0.5 ? .secondary : (isGood ? .green : .red))
+        .foregroundColor(abs(delta) < 0.5 ? .secondary : (isGood ? .green : .red))
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(
             "\(isPositive ? "increased" : "decreased") by \(String(format: "%.1f", abs(delta))) percent"

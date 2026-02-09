@@ -346,7 +346,7 @@ struct PostureGaitCaptureView: View {
                 Image(systemName: "figure.walk")
                     .font(.system(size: 80))
                     .symbolEffect(.pulse)
-                    .foregroundStyle(.accentColor)
+                    .foregroundStyle(Color.accentColor)
 
                 Text("Ready to Capture")
                     .font(.title.bold())

@@ -39,12 +39,12 @@ struct SecondaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.body.weight(.medium))
-            .foregroundStyle(.accentColor)
+            .foregroundStyle(Color.accentColor)
             .padding(.horizontal, AppSpacing.xl)
             .padding(.vertical, AppSpacing.md)
             .background(
                 Capsule()
-                    .strokeBorder(.accentColor, lineWidth: 1.5)
+                    .strokeBorder(Color.accentColor, lineWidth: 1.5)
             )
             .scaleEffect(configuration.isPressed ? 0.97 : 1.0)
             .animation(.easeOut(duration: 0.15), value: configuration.isPressed)

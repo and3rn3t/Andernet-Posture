@@ -13,7 +13,7 @@ import os.log
 // MARK: - Test Protocol State
 
 /// State of a clinical test protocol.
-enum ClinicalTestState: Sendable {
+enum ClinicalTestState: Sendable, Equatable {
     case notStarted
     case instructing(step: Int, totalSteps: Int, instruction: String)
     case countdown(seconds: Int)
