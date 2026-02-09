@@ -178,7 +178,8 @@ final class DefaultFrailtyScreener: FrailtyScreener {
         switch friedCount {
         case 0:
             classification = .robust
-            interpretation = "No frailty indicators detected from available data. \(criteria.filter { $0.source == .unavailable || $0.source == .selfReport }.count) criteria require clinical assessment."
+            interpretation = "No frailty indicators detected from available data. "
+                + "\(criteria.filter { $0.source == .unavailable || $0.source == .selfReport }.count) criteria require clinical assessment."
         case 1...2:
             classification = .preFrail
             interpretation = "Pre-frailty indicators present (\(friedCount) of 5 criteria). Consider comprehensive geriatric assessment."

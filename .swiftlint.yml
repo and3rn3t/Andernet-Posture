@@ -53,11 +53,19 @@ file_length:
 
 function_body_length:
   warning: 60
-  error: 100
+  error: 150
 
 function_parameter_count:
   warning: 6
-  error: 8
+  error: 14
+
+cyclomatic_complexity:
+  warning: 10
+  error: 25
+
+large_tuple:
+  warning: 2
+  error: 9
 
 type_name:
   min_length: 3

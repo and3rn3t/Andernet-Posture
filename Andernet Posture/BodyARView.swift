@@ -114,17 +114,18 @@ extension BodyARView {
             guard let body = anchors.compactMap({ $0 as? ARBodyAnchor }).last else { return }
             let rootTransform = body.transform
 
+            // Extract joint positions on this (nonisolated) thread to avoid
+            // main-actor access to JointName.jointPath inside assumeIsolated.
             var joints: [JointName: SIMD3<Float>] = [:]
-
-            for joint in JointName.allCases {
-                let path = joint.jointPath
+            let allJoints = JointName.allCases   // enum value, Sendable
+            for joint in allJoints {
+                let path = joint.rawValue         // rawValue is Sendable
                 let skeleton = body.skeleton
                 let idx = skeleton.definition.index(for: ARSkeleton.JointName(rawValue: path))
                 guard idx != NSNotFound else { continue }
                 let modelT = skeleton.jointModelTransforms[idx]
                 let worldT = simd_mul(rootTransform, modelT)
-                let pos = SIMD3<Float>(worldT.columns.3.x, worldT.columns.3.y, worldT.columns.3.z)
-                joints[joint] = pos
+                joints[joint] = SIMD3<Float>(worldT.columns.3.x, worldT.columns.3.y, worldT.columns.3.z)
             }
 
             let timestamp = session.currentFrame?.timestamp ?? CACurrentMediaTime()

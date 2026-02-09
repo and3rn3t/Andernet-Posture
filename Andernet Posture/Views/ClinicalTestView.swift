@@ -316,10 +316,10 @@ struct ClinicalTestView: View {
     @ViewBuilder
     private func rombergResultView(_ result: RombergResult) -> some View {
         VStack(spacing: 12) {
-            resultRow("Eyes Open Sway", value: String(format: "%.1f mm/s", result.eyesOpenVelocityMMS))
-            resultRow("Eyes Closed Sway", value: String(format: "%.1f mm/s", result.eyesClosedVelocityMMS))
-            resultRow("Romberg Ratio", value: String(format: "%.2f", result.rombergRatio),
-                       severity: result.rombergRatio <= 2.0 ? .normal : .moderate)
+            resultRow("Eyes Open Sway", value: String(format: "%.1f mm/s", result.eyesOpenSwayVelocity))
+            resultRow("Eyes Closed Sway", value: String(format: "%.1f mm/s", result.eyesClosedSwayVelocity))
+            resultRow("Romberg Ratio", value: String(format: "%.2f", result.ratio),
+                       severity: result.ratio <= 2.0 ? .normal : .moderate)
 
             Text("Ratio >2.0 suggests proprioceptive/vestibular deficit")
                 .font(.caption2)
@@ -334,7 +334,7 @@ struct ClinicalTestView: View {
     private func sixMWTResultView(_ result: SixMinuteWalkResult) -> some View {
         VStack(spacing: 12) {
             resultRow("Distance", value: String(format: "%.0f m", result.distanceM))
-            if let predicted = result.predictedM {
+            if let predicted = result.predictedDistanceM {
                 resultRow("Predicted", value: String(format: "%.0f m", predicted))
             }
             if let pctPredicted = result.percentPredicted {

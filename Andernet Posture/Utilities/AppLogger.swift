@@ -5,6 +5,7 @@
 //  Structured OSLog loggers for all app subsystems.
 //
 
+import Foundation
 import os.log
 
 /// Centralized logger definitions for structured logging throughout the app.
