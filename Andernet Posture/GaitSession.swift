@@ -110,24 +110,40 @@ final class GaitSession {
         self.motionFramesData = motionFramesData
     }
 
+    // MARK: - Transient Caches
+
+    /// Cached decoded frames — not persisted by SwiftData.
+    @Transient private var _cachedFrames: [BodyFrame]? = nil
+    @Transient private var _cachedSteps: [StepEvent]? = nil
+    @Transient private var _cachedMotion: [MotionFrame]? = nil
+
     // MARK: - Computed Properties
 
-    /// Lazily decode body frames from stored JSON.
+    /// Lazily decode body frames from stored JSON (cached after first access).
     var decodedFrames: [BodyFrame] {
+        if let cached = _cachedFrames { return cached }
         guard let data = framesData else { return [] }
-        return (try? JSONDecoder().decode([BodyFrame].self, from: data)) ?? []
+        let decoded = (try? JSONDecoder().decode([BodyFrame].self, from: data)) ?? []
+        _cachedFrames = decoded
+        return decoded
     }
 
-    /// Lazily decode step events from stored JSON.
+    /// Lazily decode step events from stored JSON (cached after first access).
     var decodedStepEvents: [StepEvent] {
+        if let cached = _cachedSteps { return cached }
         guard let data = stepEventsData else { return [] }
-        return (try? JSONDecoder().decode([StepEvent].self, from: data)) ?? []
+        let decoded = (try? JSONDecoder().decode([StepEvent].self, from: data)) ?? []
+        _cachedSteps = decoded
+        return decoded
     }
 
-    /// Lazily decode motion frames from stored JSON.
+    /// Lazily decode motion frames from stored JSON (cached after first access).
     var decodedMotionFrames: [MotionFrame] {
+        if let cached = _cachedMotion { return cached }
         guard let data = motionFramesData else { return [] }
-        return (try? JSONDecoder().decode([MotionFrame].self, from: data)) ?? []
+        let decoded = (try? JSONDecoder().decode([MotionFrame].self, from: data)) ?? []
+        _cachedMotion = decoded
+        return decoded
     }
 
     /// Encode body frames to JSON data.

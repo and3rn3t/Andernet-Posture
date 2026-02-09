@@ -14,11 +14,13 @@ struct PostureGaitCaptureView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var viewModel = CaptureViewModel()
     @State private var showSavedAlert = false
+    @AppStorage("skeletonOverlay") private var skeletonOverlay = true
+    @AppStorage("samplingRate") private var samplingRate = 60.0
 
     var body: some View {
         ZStack {
             // Full-screen AR body tracking
-            BodyARView(viewModel: viewModel)
+            BodyARView(viewModel: viewModel, showSkeleton: skeletonOverlay, samplingRate: samplingRate)
                 .ignoresSafeArea()
 
             // Darkened overlay for readability on camera feed

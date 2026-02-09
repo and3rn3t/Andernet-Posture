@@ -7,6 +7,7 @@
 
 import Foundation
 import simd
+import os.log
 
 /// Recording state machine states.
 enum RecordingState: Sendable {
@@ -56,6 +57,12 @@ final class DefaultSessionRecorder: SessionRecorder {
 
     private(set) var state: RecordingState = .idle
 
+    /// Serial queue for thread-safe access to recorded data arrays.
+    private let recordingQueue = DispatchQueue(label: "com.andernet.posture.recording", qos: .userInitiated)
+
+    /// Maximum frame capacity before decimation kicks in (~10 minutes at 60 fps).
+    private let maxFrameCapacity = 36_000
+
     private var startDate: Date?
     private var pauseDate: Date?
     private var accumulatedPause: TimeInterval = 0
@@ -79,14 +86,15 @@ final class DefaultSessionRecorder: SessionRecorder {
         }
     }
 
-    var frameCount: Int { frames.count }
-    var stepCount: Int { steps.count }
+    var frameCount: Int { recordingQueue.sync { frames.count } }
+    var stepCount: Int { recordingQueue.sync { steps.count } }
 
     // MARK: State transitions
 
     func startCalibration() {
         guard state == .idle else { return }
         state = .calibrating
+        AppLogger.recorder.info("Calibration started")
     }
 
     func startRecording() {
@@ -94,6 +102,10 @@ final class DefaultSessionRecorder: SessionRecorder {
         state = .recording
         startDate = Date()
         accumulatedPause = 0
+        // Pre-allocate arrays to reduce heap churn during recording.
+        frames.reserveCapacity(3600)         // ~1 min at 60 fps
+        steps.reserveCapacity(200)
+        motionFrames.reserveCapacity(3600)   // ~1 min at 60 fps
     }
 
     func pause() {
@@ -115,6 +127,7 @@ final class DefaultSessionRecorder: SessionRecorder {
             pauseDate = Date()
         }
         state = .finished
+        AppLogger.recorder.info("Recording stopped — \(self.frames.count) frames, \(self.steps.count) steps")
     }
 
     func reset() {
@@ -125,26 +138,48 @@ final class DefaultSessionRecorder: SessionRecorder {
         frames.removeAll()
         steps.removeAll()
         motionFrames.removeAll()
+        AppLogger.recorder.debug("Recorder reset")
     }
 
     // MARK: Data collection
 
     func recordFrame(_ frame: BodyFrame) {
         guard state == .recording else { return }
-        frames.append(frame)
+        recordingQueue.async { [self] in
+            // Decimation strategy: when the buffer hits maxFrameCapacity, keep
+            // every other frame from the first half (effectively halving temporal
+            // resolution for older data) then continue appending new frames.
+            // This gives a ring-buffer-like behaviour that bounds memory usage
+            // while preserving the most recent data at full resolution.
+            if frames.count >= maxFrameCapacity {
+                let half = frames.count / 2
+                var decimated: [BodyFrame] = []
+                decimated.reserveCapacity(half / 2 + (frames.count - half))
+                for i in stride(from: 0, to: half, by: 2) {
+                    decimated.append(frames[i])
+                }
+                decimated.append(contentsOf: frames[half...])
+                frames = decimated
+            }
+            frames.append(frame)
+        }
     }
 
     func recordStep(_ step: StepEvent) {
         guard state == .recording else { return }
-        steps.append(step)
+        recordingQueue.async { [self] in
+            steps.append(step)
+        }
     }
 
     func recordMotionFrame(_ frame: MotionFrame) {
         guard state == .recording else { return }
-        motionFrames.append(frame)
+        recordingQueue.async { [self] in
+            motionFrames.append(frame)
+        }
     }
 
-    func collectedFrames() -> [BodyFrame] { frames }
-    func collectedSteps() -> [StepEvent] { steps }
-    func collectedMotionFrames() -> [MotionFrame] { motionFrames }
+    func collectedFrames() -> [BodyFrame] { recordingQueue.sync { frames } }
+    func collectedSteps() -> [StepEvent] { recordingQueue.sync { steps } }
+    func collectedMotionFrames() -> [MotionFrame] { recordingQueue.sync { motionFrames } }
 }

@@ -3,26 +3,32 @@
 //  Andernet Posture
 //
 //  Thin UIViewRepresentable wrapper around ARView.
-//  All body-tracking logic is handled by BodyTrackingService.
+//  Skeleton overlay and frame-rate throttling are driven by
+//  @AppStorage values passed in from PostureGaitCaptureView.
 //
 
 import SwiftUI
 import RealityKit
 import ARKit
 import QuartzCore
+import os.log
 
 struct BodyARView: UIViewRepresentable {
     let viewModel: CaptureViewModel
+    /// Whether the skeleton overlay is visible (driven by @AppStorage "skeletonOverlay").
+    var showSkeleton: Bool = true
+    /// Target sampling rate in Hz (driven by @AppStorage "samplingRate").
+    var samplingRate: Double = 60.0
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(viewModel: viewModel)
+        Coordinator(viewModel: viewModel, showSkeleton: showSkeleton, samplingRate: samplingRate)
     }
 
     func makeUIView(context: Context) -> ARView {
         let arView = ARView(frame: .zero)
 
         guard ARBodyTrackingConfiguration.isSupported else {
-            print("ARBodyTrackingConfiguration not supported on this device.")
+            AppLogger.arTracking.warning("ARBodyTrackingConfiguration not supported on this device.")
             return arView
         }
 
@@ -39,7 +45,10 @@ struct BodyARView: UIViewRepresentable {
         return arView
     }
 
-    func updateUIView(_ uiView: ARView, context: Context) {}
+    func updateUIView(_ uiView: ARView, context: Context) {
+        context.coordinator.showSkeleton = showSkeleton
+        context.coordinator.samplingRate = samplingRate
+    }
 
     static func dismantleUIView(_ uiView: ARView, coordinator: Coordinator) {
         uiView.session.pause()
@@ -55,8 +64,17 @@ extension BodyARView {
         private var jointEntities: [JointName: ModelEntity] = [:]
         private var boneEntities: [(ModelEntity, JointName, JointName)] = []
 
-        init(viewModel: CaptureViewModel) {
+        /// Toggled by `updateUIView` when the @AppStorage value changes.
+        var showSkeleton: Bool
+        /// Target sampling rate (Hz). Frames are skipped to approximate this rate.
+        var samplingRate: Double
+        /// Tracks the last timestamp forwarded to the view-model for frame-rate throttling.
+        private var lastForwardedTimestamp: TimeInterval = 0
+
+        init(viewModel: CaptureViewModel, showSkeleton: Bool, samplingRate: Double) {
             self.viewModel = viewModel
+            self.showSkeleton = showSkeleton
+            self.samplingRate = samplingRate
         }
 
         // MARK: Skeleton overlay
@@ -112,15 +130,20 @@ extension BodyARView {
             let timestamp = session.currentFrame?.timestamp ?? CACurrentMediaTime()
 
             MainActor.assumeIsolated {
-                // Forward to CaptureViewModel's body tracking callback
-                viewModel.handleBodyFrame(joints: joints, timestamp: timestamp)
+                // Frame-rate throttling: skip frames when samplingRate < 60
+                let minInterval = samplingRate > 0 ? (1.0 / samplingRate) : 0
+                if timestamp - lastForwardedTimestamp >= minInterval {
+                    lastForwardedTimestamp = timestamp
+                    viewModel.handleBodyFrame(joints: joints, timestamp: timestamp)
+                }
 
-                // Update skeleton overlay
+                // Update skeleton overlay (respects showSkeleton toggle)
                 updateSkeletonOverlay(joints: joints)
             }
         }
 
         nonisolated func session(_ session: ARSession, didFailWithError error: Error) {
+            AppLogger.arTracking.error("AR session failed: \(error.localizedDescription)")
             MainActor.assumeIsolated {
                 viewModel.errorMessage = error.localizedDescription
             }
@@ -129,6 +152,13 @@ extension BodyARView {
         // MARK: Private — skeleton visualization
 
         private func updateSkeletonOverlay(joints: [JointName: SIMD3<Float>]) {
+            // If skeleton overlay is disabled, hide everything and return early
+            guard showSkeleton else {
+                for (_, entity) in jointEntities { entity.isEnabled = false }
+                for (entity, _, _) in boneEntities { entity.isEnabled = false }
+                return
+            }
+
             for (joint, entity) in jointEntities {
                 if let pos = joints[joint] {
                     entity.position = pos

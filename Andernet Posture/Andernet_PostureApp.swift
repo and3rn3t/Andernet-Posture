@@ -7,21 +7,36 @@
 
 import SwiftUI
 import SwiftData
+import os.log
+
+private let logger = Logger(subsystem: "dev.andernet.posture", category: "App")
 
 @main
 struct Andernet_PostureApp: App {
-    var sharedModelContainer: ModelContainer = {
-        let schema = Schema([
-            GaitSession.self,
-        ])
-        let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
+
+    let sharedModelContainer: ModelContainer
+    @State private var containerError: String?
+
+    init() {
+        let schema = Schema([GaitSession.self])
+        let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 
         do {
-            return try ModelContainer(for: schema, configurations: [modelConfiguration])
+            sharedModelContainer = try ModelContainer(for: schema, configurations: [config])
+            logger.info("ModelContainer created successfully (persistent store)")
         } catch {
-            fatalError("Could not create ModelContainer: \(error)")
+            logger.error("Persistent ModelContainer failed: \(error.localizedDescription). Falling back to in-memory store.")
+            // Fallback: in-memory store so the app doesn't crash
+            do {
+                let fallbackConfig = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+                sharedModelContainer = try ModelContainer(for: schema, configurations: [fallbackConfig])
+                logger.warning("Using in-memory fallback — data will not persist between launches.")
+            } catch {
+                // Last resort: this should never happen, but if it does, crash with context
+                fatalError("ModelContainer could not be created even in-memory: \(error)")
+            }
         }
-    }()
+    }
 
     var body: some Scene {
         WindowGroup {

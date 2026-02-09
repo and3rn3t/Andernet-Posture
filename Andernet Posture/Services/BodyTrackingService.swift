@@ -28,6 +28,11 @@ protocol BodyTrackingService: AnyObject {
 
 import RealityKit
 
+/// - Important: `ARBodyTrackingService` is **deprecated**. All AR body-tracking,
+///   skeleton overlay rendering, and frame-rate throttling are now handled by
+///   `BodyARView.Coordinator`. This class is retained only for backward
+///   compatibility and will be removed in a future release.
+@available(*, deprecated, message: "Use BodyARView.Coordinator instead.")
 final class ARBodyTrackingService: NSObject, BodyTrackingService, ARSessionDelegate {
     static var isSupported: Bool {
         ARBodyTrackingConfiguration.isSupported

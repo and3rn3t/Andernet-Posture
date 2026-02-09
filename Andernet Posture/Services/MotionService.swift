@@ -7,6 +7,7 @@
 
 import Foundation
 import CoreMotion
+import os.log
 
 /// Protocol for CoreMotion device motion data.
 protocol MotionService: AnyObject {
@@ -30,7 +31,11 @@ final class CoreMotionService: MotionService {
     var onMotionUpdate: ((MotionFrame) -> Void)?
 
     func start() {
-        guard motionManager.isDeviceMotionAvailable else { return }
+        guard motionManager.isDeviceMotionAvailable else {
+            AppLogger.motion.warning("Device motion not available")
+            return
+        }
+        AppLogger.motion.info("CoreMotion started at \(self.updateInterval)s interval")
 
         motionManager.deviceMotionUpdateInterval = updateInterval
         motionManager.startDeviceMotionUpdates(
@@ -45,5 +50,6 @@ final class CoreMotionService: MotionService {
 
     func stop() {
         motionManager.stopDeviceMotionUpdates()
+        AppLogger.motion.info("CoreMotion stopped")
     }
 }

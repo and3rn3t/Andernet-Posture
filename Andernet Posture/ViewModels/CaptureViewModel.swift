@@ -10,6 +10,7 @@ import Foundation
 import SwiftData
 import Observation
 import simd
+import UIKit
 
 /// Drives the PostureGaitCaptureView — orchestrates services, holds live metrics.
 @Observable
@@ -90,6 +91,14 @@ final class CaptureViewModel {
 
     // Frame counter for throttling expensive computations
     private var frameIndex: Int = 0
+
+    // Haptic feedback
+    @ObservationIgnored private let hapticGenerator = UIImpactFeedbackGenerator(style: .heavy)
+    @ObservationIgnored private var hapticEnabled: Bool { UserDefaults.standard.bool(forKey: "hapticFeedback") }
+    private var lastHapticFrame: Int = 0
+
+    // Cached ROM values for frames when ROM analysis is throttled
+    private var cachedROMValues: (hipL: Double, hipR: Double, kneeL: Double, kneeR: Double, pelvicTilt: Double, trunkRot: Double, armSwingL: Double, armSwingR: Double)?
 
     // Session accumulators
     private var postureMetricsHistory: [PostureMetrics] = []
@@ -371,6 +380,12 @@ final class CaptureViewModel {
             nyprScore = postureMetrics.nyprScore
             severities = postureMetrics.severities
             postureMetricsHistory.append(postureMetrics)
+
+            // ── Haptic alert for poor posture ──
+            if hapticEnabled && postureMetrics.postureScore < 40 && frameIndex - lastHapticFrame > 120 {
+                hapticGenerator.impactOccurred()
+                lastHapticFrame = frameIndex
+            }
         }
 
         // ── Gait analysis ──
@@ -381,19 +396,33 @@ final class CaptureViewModel {
         walkingSpeedMPS = gaitMetrics.walkingSpeedMPS
         avgStepWidthCm = gaitMetrics.avgStepWidthCm
 
-        // ── ROM analysis ──
-        let romMetrics = romAnalyzer.analyze(joints: joints)
-        romAnalyzer.recordFrame(romMetrics)
-        hipFlexionLeftDeg = romMetrics.hipFlexionLeftDeg
-        hipFlexionRightDeg = romMetrics.hipFlexionRightDeg
-        kneeFlexionLeftDeg = romMetrics.kneeFlexionLeftDeg
-        kneeFlexionRightDeg = romMetrics.kneeFlexionRightDeg
+        // ── ROM analysis (every 3rd frame) ──
+        if frameIndex % 3 == 0 {
+            let romMetrics = romAnalyzer.analyze(joints: joints)
+            romAnalyzer.recordFrame(romMetrics)
+            hipFlexionLeftDeg = romMetrics.hipFlexionLeftDeg
+            hipFlexionRightDeg = romMetrics.hipFlexionRightDeg
+            kneeFlexionLeftDeg = romMetrics.kneeFlexionLeftDeg
+            kneeFlexionRightDeg = romMetrics.kneeFlexionRightDeg
+            cachedROMValues = (
+                hipL: romMetrics.hipFlexionLeftDeg,
+                hipR: romMetrics.hipFlexionRightDeg,
+                kneeL: romMetrics.kneeFlexionLeftDeg,
+                kneeR: romMetrics.kneeFlexionRightDeg,
+                pelvicTilt: romMetrics.pelvicTiltDeg,
+                trunkRot: romMetrics.trunkRotationDeg,
+                armSwingL: romMetrics.armSwingLeftDeg,
+                armSwingR: romMetrics.armSwingRightDeg
+            )
+        }
 
-        // ── Balance analysis ──
-        if let root = joints[.root] {
-            let balanceMetrics = balanceAnalyzer.processFrame(rootPosition: root, timestamp: timestamp)
-            swayVelocityMMS = balanceMetrics.swayVelocityMMS
-            isStanding = balanceAnalyzer.isStanding
+        // ── Balance analysis (every 2nd frame) ──
+        if frameIndex % 2 == 0 {
+            if let root = joints[.root] {
+                let balanceMetrics = balanceAnalyzer.processFrame(rootPosition: root, timestamp: timestamp)
+                swayVelocityMMS = balanceMetrics.swayVelocityMMS
+                isStanding = balanceAnalyzer.isStanding
+            }
         }
 
         // ── REBA (throttled — every 10th frame) ──
@@ -402,15 +431,17 @@ final class CaptureViewModel {
             rebaScore = reba.score
         }
 
-        // ── Fatigue tracking (throttled — handled internally) ──
-        fatigueAnalyzer.recordTimePoint(
-            timestamp: timestamp,
-            postureScore: postureScore,
-            trunkLeanDeg: trunkLeanDeg,
-            lateralLeanDeg: lateralLeanDeg,
-            cadenceSPM: cadenceSPM,
-            walkingSpeedMPS: walkingSpeedMPS
-        )
+        // ── Fatigue tracking (every 6th frame) ──
+        if frameIndex % 6 == 0 {
+            fatigueAnalyzer.recordTimePoint(
+                timestamp: timestamp,
+                postureScore: postureScore,
+                trunkLeanDeg: trunkLeanDeg,
+                lateralLeanDeg: lateralLeanDeg,
+                cadenceSPM: cadenceSPM,
+                walkingSpeedMPS: walkingSpeedMPS
+            )
+        }
 
         // ── Record detected step ──
         if let strike = gaitMetrics.stepDetected {
@@ -454,14 +485,14 @@ final class CaptureViewModel {
             avgStrideLengthM: avgStrideLengthM,
             walkingSpeedMPS: walkingSpeedMPS,
             stepWidthCm: avgStepWidthCm,
-            hipFlexionLeftDeg: romMetrics.hipFlexionLeftDeg,
-            hipFlexionRightDeg: romMetrics.hipFlexionRightDeg,
-            kneeFlexionLeftDeg: romMetrics.kneeFlexionLeftDeg,
-            kneeFlexionRightDeg: romMetrics.kneeFlexionRightDeg,
-            pelvicTiltDeg: romMetrics.pelvicTiltDeg,
-            trunkRotationDeg: romMetrics.trunkRotationDeg,
-            armSwingLeftDeg: romMetrics.armSwingLeftDeg,
-            armSwingRightDeg: romMetrics.armSwingRightDeg,
+            hipFlexionLeftDeg: cachedROMValues?.hipL ?? hipFlexionLeftDeg,
+            hipFlexionRightDeg: cachedROMValues?.hipR ?? hipFlexionRightDeg,
+            kneeFlexionLeftDeg: cachedROMValues?.kneeL ?? kneeFlexionLeftDeg,
+            kneeFlexionRightDeg: cachedROMValues?.kneeR ?? kneeFlexionRightDeg,
+            pelvicTiltDeg: cachedROMValues?.pelvicTilt ?? 0,
+            trunkRotationDeg: cachedROMValues?.trunkRot ?? 0,
+            armSwingLeftDeg: cachedROMValues?.armSwingL ?? 0,
+            armSwingRightDeg: cachedROMValues?.armSwingR ?? 0,
             swayVelocityMMS: swayVelocityMMS,
             rebaScore: frameIndex % 10 == 0 ? rebaScore : nil,
             gaitPatternRaw: nil
@@ -507,6 +538,8 @@ final class CaptureViewModel {
         recordingState = .idle
         severities = [:]
         frameIndex = 0
+        lastHapticFrame = 0
+        cachedROMValues = nil
         postureMetricsHistory.removeAll()
         stepWidthValues.removeAll()
     }

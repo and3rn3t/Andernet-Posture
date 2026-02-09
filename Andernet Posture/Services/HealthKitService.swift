@@ -7,6 +7,7 @@
 
 import Foundation
 import HealthKit
+import os.log
 
 /// User demographics read from HealthKit for normative comparison.
 struct UserDemographics: Sendable {
@@ -98,8 +99,12 @@ final class DefaultHealthKitService: HealthKitService {
     // MARK: Authorization
 
     func requestAuthorization() async throws {
-        guard isAvailable else { return }
+        guard isAvailable else {
+            AppLogger.healthKit.warning("HealthKit not available on this device")
+            return
+        }
         try await store.requestAuthorization(toShare: writeTypes, read: readTypes)
+        AppLogger.healthKit.info("HealthKit authorization requested")
     }
 
     // MARK: Write
@@ -139,8 +144,13 @@ final class DefaultHealthKitService: HealthKitService {
 
         try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Void, Error>) in
             store.save(samples) { success, error in
-                if let error { cont.resume(throwing: error) }
-                else { cont.resume() }
+                if let error {
+                    AppLogger.healthKit.error("Failed to save HealthKit samples: \(error.localizedDescription)")
+                    cont.resume(throwing: error)
+                } else {
+                    AppLogger.healthKit.info("Saved \(samples.count) HealthKit sample(s)")
+                    cont.resume()
+                }
             }
         }
     }
