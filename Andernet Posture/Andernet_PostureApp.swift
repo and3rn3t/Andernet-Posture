@@ -27,7 +27,7 @@ struct Andernet_PostureApp: App {
         let config = ModelConfiguration(
             schema: schema,
             isStoredInMemoryOnly: false,
-            cloudKitDatabase: .automatic
+            cloudKitDatabase: .private("iCloud.dev.andernet.posture")
         )
 
         do {

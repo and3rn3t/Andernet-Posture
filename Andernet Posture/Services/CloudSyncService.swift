@@ -67,7 +67,7 @@ final class CloudSyncService {
         // import/export/setup event. SwiftData's CloudKit integration uses
         // the same underlying container, so we receive them automatically.
         NotificationCenter.default.publisher(
-            for: NSNotification.Name("NSPersistentCloudKitContainerEventChanged")
+            for: NSPersistentCloudKitContainer.eventChangedNotification
         )
         .receive(on: RunLoop.main)
         .sink { [weak self] notification in
@@ -80,7 +80,8 @@ final class CloudSyncService {
         // The event is packed in userInfo under the key
         // "NSPersistentCloudKitContainer.eventNotificationUserInfoKey"
         // We use the event's type and endDate to determine status.
-        guard let event = notification.userInfo?["event"] as? NSPersistentCloudKitContainer.Event else {
+        guard let event = notification.userInfo?[NSPersistentCloudKitContainer.eventNotificationUserInfoKey]
+                as? NSPersistentCloudKitContainer.Event else {
             logger.debug("Received cloud event notification without parseable event.")
             return
         }
