@@ -20,6 +20,7 @@ struct SettingsView: View {
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
 
     @Environment(CloudSyncService.self) private var syncService
+    @Environment(MLModelService.self) private var mlModelService
     @Query private var sessions: [GaitSession]
 
     @State private var healthKitService: DefaultHealthKitService? = DefaultHealthKitService()
@@ -177,6 +178,44 @@ struct SettingsView: View {
                     Text("Clinical Tools")
                 } footer: {
                     Text("Run guided TUG, Romberg, and 6-Minute Walk protocols.")
+                }
+
+                // MARK: - Machine Learning
+                Section {
+                    @Bindable var ml = mlModelService
+                    Toggle(isOn: $ml.useMLModels) {
+                        Label("Use ML Models", systemImage: "brain")
+                    }
+
+                    if mlModelService.useMLModels {
+                        ForEach(mlModelService.modelStatuses, id: \.identifier.rawValue) { status in
+                            HStack {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(status.identifier.displayName)
+                                        .font(.subheadline)
+                                    Text(status.identifier.summary)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                if status.isAvailable {
+                                    Text("v\(status.version)")
+                                        .font(.caption.monospaced())
+                                        .foregroundStyle(.secondary)
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .foregroundStyle(.green)
+                                } else {
+                                    Text("Not bundled")
+                                        .font(.caption)
+                                        .foregroundStyle(.orange)
+                                }
+                            }
+                        }
+                    }
+                } header: {
+                    Text("Machine Learning")
+                } footer: {
+                    Text("When enabled, CoreML models augment rule-based analysis. If a model is unavailable, the app falls back to geometric algorithms automatically.")
                 }
 
                 // MARK: - Disclaimer
@@ -465,4 +504,5 @@ struct DataManagementView: View {
     SettingsView()
         .modelContainer(for: [GaitSession.self, UserGoals.self], inMemory: true)
         .environment(CloudSyncService())
+        .environment(MLModelService.shared)
 }

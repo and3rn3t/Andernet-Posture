@@ -73,4 +73,5 @@ struct MainTabView: View {
     MainTabView()
         .modelContainer(for: [GaitSession.self, UserGoals.self], inMemory: true)
         .environment(CloudSyncService())
+        .environment(MLModelService.shared)
 }

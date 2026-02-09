@@ -17,6 +17,7 @@ struct Andernet_PostureApp: App {
     let sharedModelContainer: ModelContainer
     @State private var showSplash = true
     @State private var cloudSyncService = CloudSyncService()
+    @State private var mlModelService = MLModelService.shared
 
     init() {
         let schema = Schema([GaitSession.self, UserGoals.self])
@@ -71,6 +72,9 @@ struct Andernet_PostureApp: App {
                 // Kick off iCloud KVS sync for demographics
                 KeyValueStoreSync.shared.pushAll()
 
+                // Pre-warm CoreML models in background
+                mlModelService.warmUp()
+
                 // Dismiss splash after animation completes
                 DispatchQueue.main.asyncAfter(deadline: .now() + 2.8) {
                     withAnimation(.easeOut(duration: 0.5)) {
@@ -81,6 +85,7 @@ struct Andernet_PostureApp: App {
         }
         .modelContainer(sharedModelContainer)
         .environment(cloudSyncService)
+        .environment(mlModelService)
     }
 
     // MARK: - Legacy Goals Migration

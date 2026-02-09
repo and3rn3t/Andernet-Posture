@@ -116,7 +116,7 @@ final class CaptureViewModel {
 
     init(
         gaitAnalyzer: any GaitAnalyzer = DefaultGaitAnalyzer(),
-        postureAnalyzer: any PostureAnalyzer = DefaultPostureAnalyzer(),
+        postureAnalyzer: any PostureAnalyzer = CoreMLPostureAnalyzer(modelService: .shared),
         motionService: any MotionService = CoreMotionService(),
         recorder: any SessionRecorder = DefaultSessionRecorder(),
         balanceAnalyzer: any BalanceAnalyzer = DefaultBalanceAnalyzer(),
@@ -124,8 +124,8 @@ final class CaptureViewModel {
         ergonomicScorer: any ErgonomicScorer = DefaultErgonomicScorer(),
         fatigueAnalyzer: any FatigueAnalyzer = DefaultFatigueAnalyzer(),
         smoothnessAnalyzer: any SmoothnessAnalyzer = DefaultSmoothnessAnalyzer(),
-        fallRiskAnalyzer: any FallRiskAnalyzer = DefaultFallRiskAnalyzer(),
-        gaitPatternClassifier: any GaitPatternClassifier = DefaultGaitPatternClassifier(),
+        fallRiskAnalyzer: any FallRiskAnalyzer = CoreMLFallRiskAnalyzer(modelService: .shared),
+        gaitPatternClassifier: any GaitPatternClassifier = CoreMLGaitPatternClassifier(modelService: .shared),
         crossedSyndromeDetector: any CrossedSyndromeDetector = DefaultCrossedSyndromeDetector(),
         painRiskEngine: any PainRiskEngine = DefaultPainRiskEngine(),
         frailtyScreener: any FrailtyScreener = DefaultFrailtyScreener(),
