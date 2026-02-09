@@ -11,6 +11,18 @@ import SwiftData
 struct SessionListView: View {
     @Query(sort: \GaitSession.date, order: .reverse) private var sessions: [GaitSession]
     @Environment(\.modelContext) private var modelContext
+    @State private var compareMode = false
+    @State private var selectedForCompare: Set<PersistentIdentifier> = []
+    @State private var navigateToComparison = false
+
+    /// The two sessions chosen for comparison (baseline = earlier date).
+    private var comparisonPair: (GaitSession, GaitSession)? {
+        guard selectedForCompare.count == 2 else { return nil }
+        let picked = sessions.filter { selectedForCompare.contains($0.persistentModelID) }
+        guard picked.count == 2 else { return nil }
+        let sorted = picked.sorted { $0.date < $1.date }
+        return (sorted[0], sorted[1])
+    }
 
     var body: some View {
         NavigationStack {
@@ -25,25 +37,100 @@ struct SessionListView: View {
                     .listRowSeparator(.hidden)
                 } else {
                     ForEach(sessions) { session in
-                        NavigationLink(value: session) {
-                            SessionRow(session: session)
+                        if compareMode {
+                            compareRow(session: session)
+                        } else {
+                            NavigationLink(value: session) {
+                                SessionRow(session: session)
+                            }
                         }
                     }
-                    .onDelete(perform: deleteSessions)
+                    .onDelete { offsets in
+                        if !compareMode {
+                            deleteSessions(at: offsets)
+                        }
+                    }
                 }
             }
             .navigationTitle("Sessions")
             .navigationDestination(for: GaitSession.self) { session in
                 SessionDetailView(session: session)
             }
-            .toolbar {
-                if !sessions.isEmpty {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        EditButton()
+            .navigationDestination(isPresented: $navigateToComparison) {
+                if let pair = comparisonPair {
+                    ComparisonView(baseline: pair.0, current: pair.1)
+                } else {
+                    EmptyView()
+                }
+            }
+            .toolbar(content: sessionToolbar)
+        }
+    }
+
+    // MARK: - Toolbar
+
+    @ToolbarContentBuilder
+    private func sessionToolbar() -> some ToolbarContent {
+        if !sessions.isEmpty {
+            ToolbarItem(placement: .topBarLeading) {
+                Button {
+                    withAnimation {
+                        compareMode.toggle()
+                        if !compareMode {
+                            selectedForCompare.removeAll()
+                        }
                     }
+                } label: {
+                    Image(systemName: "arrow.left.arrow.right")
+                        .symbolVariant(compareMode ? .fill : .none)
+                }
+                .accessibilityLabel(
+                    compareMode ? "Exit compare mode" : "Compare sessions"
+                )
+            }
+            ToolbarItem(placement: .topBarTrailing) {
+                if compareMode {
+                    compareButton
+                } else {
+                    EditButton()
                 }
             }
         }
+    }
+
+    // MARK: - Compare Mode Helpers
+
+    @ViewBuilder
+    private func compareRow(session: GaitSession) -> some View {
+        let isSelected = selectedForCompare.contains(session.persistentModelID)
+        Button {
+            toggleSelection(session)
+        } label: {
+            HStack {
+                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                    .foregroundStyle(isSelected ? .blue : .secondary)
+                    .imageScale(.large)
+                SessionRow(session: session)
+            }
+        }
+        .tint(.primary)
+    }
+
+    private func toggleSelection(_ session: GaitSession) {
+        let id = session.persistentModelID
+        if selectedForCompare.contains(id) {
+            selectedForCompare.remove(id)
+        } else if selectedForCompare.count < 2 {
+            selectedForCompare.insert(id)
+        }
+    }
+
+    @ViewBuilder
+    private var compareButton: some View {
+        Button("Compare") {
+            navigateToComparison = true
+        }
+        .disabled(selectedForCompare.count != 2)
     }
 
     private func deleteSessions(at offsets: IndexSet) {

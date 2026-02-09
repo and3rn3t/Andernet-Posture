@@ -70,6 +70,18 @@ struct SessionDetailView: View {
         }
         .navigationTitle(viewModel.session.date.formatted(date: .abbreviated, time: .shortened))
         .navigationBarTitleDisplayMode(.large)
+        .toolbar {
+            if viewModel.session.framesData != nil {
+                ToolbarItem(placement: .topBarTrailing) {
+                    NavigationLink {
+                        SessionPlaybackView(session: viewModel.session)
+                    } label: {
+                        Image(systemName: "play.fill")
+                    }
+                    .accessibilityLabel("Play back session")
+                }
+            }
+        }
     }
 
     // MARK: - Summary Section
