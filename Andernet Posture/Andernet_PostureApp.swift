@@ -9,7 +9,7 @@ import SwiftUI
 import SwiftData
 import os.log
 
-private let logger = Logger(subsystem: "dev.andernet.posture", category: "App")
+private let logger = AppLogger.app
 
 @main
 struct Andernet_PostureApp: App {
@@ -111,7 +111,11 @@ struct Andernet_PostureApp: App {
         case .background:
             logger.info("App entered background")
             // Save any pending changes (SwiftData auto-saves, but be explicit)
-            try? sharedModelContainer.mainContext.save()
+            do {
+                try sharedModelContainer.mainContext.save()
+            } catch {
+                logger.error("Background save failed: \(error.localizedDescription)")
+            }
             
         @unknown default:
             break
@@ -139,7 +143,11 @@ struct Andernet_PostureApp: App {
 
         if let migrated = UserGoals.fromLegacyJSON(json) {
             context.insert(migrated)
-            try? context.save()
+            do {
+                try context.save()
+            } catch {
+                logger.error("Legacy goals migration save failed: \(error.localizedDescription)")
+            }
             defaults.removeObject(forKey: legacyKey)
             logger.info("Migrated legacy GoalConfig → SwiftData UserGoals")
         }

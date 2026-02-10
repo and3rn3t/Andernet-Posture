@@ -15,7 +15,7 @@ import Combine
 import Network
 import UIKit
 
-private let logger = Logger(subsystem: "dev.andernet.posture", category: "CloudSync")
+private let logger = AppLogger.cloudSync
 
 // MARK: - SyncStatus
 

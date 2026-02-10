@@ -8,6 +8,7 @@
 
 import Foundation
 import UIKit
+import os.log
 
 // MARK: - ExportService
 
@@ -39,7 +40,11 @@ enum ExportService {
     /// Write data to a temp file and return a URL suitable for ShareLink / UIActivityVC.
     static func shareURL(for data: Data, filename: String) -> URL {
         let url = FileManager.default.temporaryDirectory.appendingPathComponent(filename)
-        try? data.write(to: url, options: .atomic)
+        do {
+            try data.write(to: url, options: .atomic)
+        } catch {
+            AppLogger.export.error("Failed to write export file '\(filename)': \(error.localizedDescription)")
+        }
         return url
     }
 

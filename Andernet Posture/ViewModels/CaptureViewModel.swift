@@ -328,10 +328,19 @@ final class CaptureViewModel {
             kneeFlexionStandingDeg: nil,
             gaitAsymmetryPercent: symmetryPercent
         )
-        session.painRiskAlertsData = try? JSONEncoder().encode(painRisk.alerts)
+        do {
+            session.painRiskAlertsData = try JSONEncoder().encode(painRisk.alerts)
+        } catch {
+            AppLogger.persistence.error("Failed to encode pain risk alerts: \(error.localizedDescription)")
+        }
 
         context.insert(session)
-        try? context.save()
+        do {
+            try context.save()
+        } catch {
+            AppLogger.persistence.error("Failed to save session: \(error.localizedDescription)")
+            self.errorMessage = String(localized: "Your session could not be saved. Please try again.")
+        }
 
         // HealthKit auto-save
         if UserDefaults.standard.bool(forKey: "healthKitSync") {

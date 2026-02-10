@@ -12,6 +12,7 @@
 import SwiftUI
 import AVFoundation
 import UIKit
+import os.log
 
 // MARK: - Accessible Capture Overlay Modifier
 
@@ -222,6 +223,7 @@ private final class ToneEngine {
             playerNode.scheduleBuffer(buffer, at: nil, options: .loops)
             playerNode.play()
         } catch {
+            AppLogger.capture.error("Audio engine failed to start: \(error.localizedDescription)")
             isPlaying = false
         }
     }

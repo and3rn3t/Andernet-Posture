@@ -1,5 +1,6 @@
 import Foundation
 import SwiftData
+import os.log
 
 @Model
 final class GaitSession {
@@ -124,42 +125,72 @@ final class GaitSession {
     var decodedFrames: [BodyFrame] {
         if let cached = _cachedFrames { return cached }
         guard let data = framesData else { return [] }
-        let decoded = (try? JSONDecoder().decode([BodyFrame].self, from: data)) ?? []
-        _cachedFrames = decoded
-        return decoded
+        do {
+            let decoded = try JSONDecoder().decode([BodyFrame].self, from: data)
+            _cachedFrames = decoded
+            return decoded
+        } catch {
+            AppLogger.persistence.error("Failed to decode BodyFrames (\(data.count) bytes): \(error.localizedDescription)")
+            return []
+        }
     }
 
     /// Lazily decode step events from stored JSON (cached after first access).
     var decodedStepEvents: [StepEvent] {
         if let cached = _cachedSteps { return cached }
         guard let data = stepEventsData else { return [] }
-        let decoded = (try? JSONDecoder().decode([StepEvent].self, from: data)) ?? []
-        _cachedSteps = decoded
-        return decoded
+        do {
+            let decoded = try JSONDecoder().decode([StepEvent].self, from: data)
+            _cachedSteps = decoded
+            return decoded
+        } catch {
+            AppLogger.persistence.error("Failed to decode StepEvents (\(data.count) bytes): \(error.localizedDescription)")
+            return []
+        }
     }
 
     /// Lazily decode motion frames from stored JSON (cached after first access).
     var decodedMotionFrames: [MotionFrame] {
         if let cached = _cachedMotion { return cached }
         guard let data = motionFramesData else { return [] }
-        let decoded = (try? JSONDecoder().decode([MotionFrame].self, from: data)) ?? []
-        _cachedMotion = decoded
-        return decoded
+        do {
+            let decoded = try JSONDecoder().decode([MotionFrame].self, from: data)
+            _cachedMotion = decoded
+            return decoded
+        } catch {
+            AppLogger.persistence.error("Failed to decode MotionFrames (\(data.count) bytes): \(error.localizedDescription)")
+            return []
+        }
     }
 
     /// Encode body frames to JSON data.
     static func encode(frames: [BodyFrame]) -> Data? {
-        try? JSONEncoder().encode(frames)
+        do {
+            return try JSONEncoder().encode(frames)
+        } catch {
+            AppLogger.persistence.error("Failed to encode \(frames.count) BodyFrames: \(error.localizedDescription)")
+            return nil
+        }
     }
 
     /// Encode step events to JSON data.
     static func encode(stepEvents: [StepEvent]) -> Data? {
-        try? JSONEncoder().encode(stepEvents)
+        do {
+            return try JSONEncoder().encode(stepEvents)
+        } catch {
+            AppLogger.persistence.error("Failed to encode \(stepEvents.count) StepEvents: \(error.localizedDescription)")
+            return nil
+        }
     }
 
     /// Encode motion frames to JSON data.
     static func encode(motionFrames: [MotionFrame]) -> Data? {
-        try? JSONEncoder().encode(motionFrames)
+        do {
+            return try JSONEncoder().encode(motionFrames)
+        } catch {
+            AppLogger.persistence.error("Failed to encode \(motionFrames.count) MotionFrames: \(error.localizedDescription)")
+            return nil
+        }
     }
 
     /// Human-readable duration string.

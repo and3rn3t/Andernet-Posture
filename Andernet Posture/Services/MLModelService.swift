@@ -15,7 +15,7 @@ import Foundation
 import CoreML
 import os.log
 
-private let logger = Logger(subsystem: "dev.andernet.posture", category: "ML")
+private let logger = AppLogger.ml
 
 // MARK: - Model Identifier
 
@@ -187,7 +187,11 @@ final class MLModelService {
         _ values: [Double?],
         sentinelValue: Double = -1.0
     ) -> MLMultiArray? {
-        guard let array = try? MLMultiArray(shape: [NSNumber(value: values.count)], dataType: .double) else {
+        let array: MLMultiArray
+        do {
+            array = try MLMultiArray(shape: [NSNumber(value: values.count)], dataType: .double)
+        } catch {
+            logger.error("Failed to create MLMultiArray(\(values.count) features): \(error.localizedDescription)")
             return nil
         }
         for (i, value) in values.enumerated() {

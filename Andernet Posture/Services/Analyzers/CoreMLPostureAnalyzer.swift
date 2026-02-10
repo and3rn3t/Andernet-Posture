@@ -17,7 +17,7 @@ import CoreML
 import simd
 import os.log
 
-private let logger = Logger(subsystem: "dev.andernet.posture", category: "ML.Posture")
+private let logger = AppLogger.ml
 
 final class CoreMLPostureAnalyzer: PostureAnalyzer {
 

@@ -11,7 +11,7 @@ import Foundation
 import Combine
 import os.log
 
-private let logger = Logger(subsystem: "dev.andernet.posture", category: "KVSync")
+private let logger = AppLogger.kvSync
 
 /// Keys synced to iCloud Key-Value Store.
 enum SyncedPreferenceKey: String, CaseIterable {

@@ -15,7 +15,7 @@ import Foundation
 import CoreML
 import os.log
 
-private let logger = Logger(subsystem: "dev.andernet.posture", category: "ML.FallRisk")
+private let logger = AppLogger.ml
 
 final class CoreMLFallRiskAnalyzer: FallRiskAnalyzer {
 

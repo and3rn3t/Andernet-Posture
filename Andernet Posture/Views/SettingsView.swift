@@ -7,6 +7,7 @@
 
 import SwiftUI
 import SwiftData
+import os.log
 
 struct SettingsView: View {
     @AppStorage("hapticFeedback") private var hapticFeedback = true
@@ -346,6 +347,7 @@ struct SettingsView: View {
                 try await healthKitService?.requestAuthorization()
                 healthKitAuthorized = true
             } catch {
+                AppLogger.healthKit.error("HealthKit authorization failed: \(error.localizedDescription)")
                 showingHealthKitError = true
             }
         }
@@ -501,7 +503,11 @@ struct DataManagementView: View {
                 for session in sessions {
                     modelContext.delete(session)
                 }
-                try? modelContext.save()
+                do {
+                    try modelContext.save()
+                } catch {
+                    AppLogger.persistence.error("Failed to save after deleting all sessions: \(error.localizedDescription)")
+                }
             }
         } message: {
             Text("This will permanently delete all \(sessions.count) sessions. This action cannot be undone.")

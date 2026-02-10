@@ -46,10 +46,10 @@ final class DefaultNotificationService: NotificationService {
     func requestPermission() async -> Bool {
         do {
             let granted = try await center.requestAuthorization(options: [.alert, .badge, .sound])
-            AppLogger.analysis.info("Notification permission \(granted ? "granted" : "denied")")
+            AppLogger.notifications.info("Notification permission \(granted ? "granted" : "denied")")
             return granted
         } catch {
-            AppLogger.analysis.error("Notification permission error: \(error.localizedDescription)")
+            AppLogger.notifications.error("Notification permission error: \(error.localizedDescription)")
             return false
         }
     }
@@ -80,9 +80,9 @@ final class DefaultNotificationService: NotificationService {
 
         center.add(request) { error in
             if let error {
-                AppLogger.analysis.error("Failed to schedule reminder: \(error.localizedDescription)")
+                AppLogger.notifications.error("Failed to schedule reminder: \(error.localizedDescription)")
             } else {
-                AppLogger.analysis.info("Daily reminder scheduled for \(hour):\(String(format: "%02d", minute))")
+                AppLogger.notifications.info("Daily reminder scheduled for \(hour):\(String(format: "%02d", minute))")
             }
         }
     }
@@ -91,7 +91,7 @@ final class DefaultNotificationService: NotificationService {
 
     func cancelAllReminders() {
         center.removePendingNotificationRequests(withIdentifiers: [Identifiers.dailyReminder])
-        AppLogger.analysis.info("All reminders cancelled")
+        AppLogger.notifications.info("All reminders cancelled")
     }
 
     // MARK: - Decline Alert
@@ -119,7 +119,7 @@ final class DefaultNotificationService: NotificationService {
 
         center.add(request) { error in
             if let error {
-                AppLogger.analysis.error("Failed to send decline alert: \(error.localizedDescription)")
+                AppLogger.notifications.error("Failed to send decline alert: \(error.localizedDescription)")
             }
         }
     }

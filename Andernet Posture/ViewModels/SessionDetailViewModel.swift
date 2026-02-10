@@ -7,6 +7,7 @@
 
 import Foundation
 import Observation
+import os.log
 
 /// Data point for time-series charts within a session detail view.
 struct TimeSeriesPoint: Identifiable {
@@ -155,7 +156,12 @@ final class SessionDetailViewModel {
 
         // Decode pain risk alerts
         if let data = session.painRiskAlertsData {
-            painAlerts = (try? JSONDecoder().decode([PainRiskAlert].self, from: data)) ?? []
+            do {
+                painAlerts = try JSONDecoder().decode([PainRiskAlert].self, from: data)
+            } catch {
+                AppLogger.persistence.error("Failed to decode PainRiskAlerts (\(data.count) bytes): \(error.localizedDescription)")
+                painAlerts = []
+            }
         }
 
         buildSummary()

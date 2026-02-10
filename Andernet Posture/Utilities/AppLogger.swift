@@ -42,4 +42,19 @@ enum AppLogger {
     
     /// Performance monitoring and profiling
     static let performance = Logger(subsystem: subsystem, category: "Performance")
+    
+    /// Export & sharing (CSV, PDF, file I/O)
+    static let export = Logger(subsystem: subsystem, category: "Export")
+    
+    /// CloudKit sync (NSPersistentCloudKitContainer)
+    static let cloudSync = Logger(subsystem: subsystem, category: "CloudSync")
+    
+    /// CoreML model loading and inference
+    static let ml = Logger(subsystem: subsystem, category: "ML")
+    
+    /// iCloud Key-Value Store sync
+    static let kvSync = Logger(subsystem: subsystem, category: "KVSync")
+    
+    /// Local notifications (reminders, alerts)
+    static let notifications = Logger(subsystem: subsystem, category: "Notifications")
 }

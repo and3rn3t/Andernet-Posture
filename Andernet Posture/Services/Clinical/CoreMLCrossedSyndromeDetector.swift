@@ -21,7 +21,7 @@ import Foundation
 import CoreML
 import os.log
 
-private let logger = Logger(subsystem: "dev.andernet.posture", category: "ML.CrossedSyndrome")
+private let logger = AppLogger.ml
 
 final class CoreMLCrossedSyndromeDetector: CrossedSyndromeDetector {
 

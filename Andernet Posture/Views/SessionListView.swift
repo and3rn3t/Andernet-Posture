@@ -7,6 +7,7 @@
 
 import SwiftUI
 import SwiftData
+import os.log
 
 struct SessionListView: View {
     @Query(sort: \GaitSession.date, order: .reverse) private var sessions: [GaitSession]
@@ -206,7 +207,11 @@ struct SessionListView: View {
         for index in offsets {
             modelContext.delete(sectionSessions[index])
         }
-        try? modelContext.save()
+        do {
+            try modelContext.save()
+        } catch {
+            AppLogger.persistence.error("Failed to save after deleting sessions: \(error.localizedDescription)")
+        }
     }
 }
 
