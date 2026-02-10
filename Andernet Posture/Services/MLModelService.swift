@@ -24,6 +24,8 @@ enum MLModelIdentifier: String, CaseIterable, Sendable {
     case gaitPatternClassifier  = "GaitPatternClassifier"
     case postureScorer          = "PostureScorer"
     case fallRiskPredictor      = "FallRiskPredictor"
+    case crossedSyndromeDetector = "CrossedSyndromeDetector"
+    case fatiguePredictor       = "FatiguePredictor"
 
     /// Human-readable display name.
     var displayName: String {
@@ -31,6 +33,8 @@ enum MLModelIdentifier: String, CaseIterable, Sendable {
         case .gaitPatternClassifier: return String(localized: "Gait Pattern Classifier")
         case .postureScorer:         return String(localized: "Posture Scorer")
         case .fallRiskPredictor:     return String(localized: "Fall Risk Predictor")
+        case .crossedSyndromeDetector: return String(localized: "Crossed Syndrome Detector")
+        case .fatiguePredictor:      return String(localized: "Fatigue Predictor")
         }
     }
 
@@ -43,6 +47,10 @@ enum MLModelIdentifier: String, CaseIterable, Sendable {
             return String(localized: "Predicts composite posture score from sub-metrics")
         case .fallRiskPredictor:
             return String(localized: "Estimates fall risk from gait and balance data")
+        case .crossedSyndromeDetector:
+            return String(localized: "Detects upper and lower crossed syndromes")
+        case .fatiguePredictor:
+            return String(localized: "Predicts fatigue onset from session trend features")
         }
     }
 
@@ -52,6 +60,8 @@ enum MLModelIdentifier: String, CaseIterable, Sendable {
         case .gaitPatternClassifier: return 14
         case .postureScorer:         return 9
         case .fallRiskPredictor:     return 8
+        case .crossedSyndromeDetector: return 7
+        case .fatiguePredictor:      return 8
         }
     }
 }
@@ -90,7 +100,9 @@ final class MLModelService {
     private let modelVersions: [MLModelIdentifier: String] = [
         .gaitPatternClassifier: "1.0.0",
         .postureScorer: "1.0.0",
-        .fallRiskPredictor: "1.0.0"
+        .fallRiskPredictor: "1.0.0",
+        .crossedSyndromeDetector: "1.0.0",
+        .fatiguePredictor: "1.0.0"
     ]
 
     init() {
