@@ -47,6 +47,11 @@ struct Andernet_PostureApp: App {
                 fatalError("ModelContainer could not be created even in-memory: \(error)")
             }
         }
+        
+        // Initialize MetricKit monitoring (production only)
+        #if !DEBUG
+        _ = MetricsManager.shared
+        #endif
     }
 
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
