@@ -7,30 +7,69 @@
 
 import XCTest
 
-final class Andernet_PostureUITests: XCTestCase {
-
-    override func setUpWithError() throws {
-        // Put setup code here. This method is called before the invocation of each test method in the class.
-
-        // In UI tests it is usually best to stop immediately when a failure occurs.
-        continueAfterFailure = false
-
-        // In UI tests it’s important to set the initial state - such as interface orientation - required for your tests before they run. The setUp method is a good place to do this.
-    }
-
-    override func tearDownWithError() throws {
-        // Put teardown code here. This method is called after the invocation of each test method in the class.
-    }
-
+/// Basic smoke tests for the Andernet Posture app
+/// For more detailed tests, see NavigationTests, SessionFlowTests, AccessibilityTests, and PerformanceTests
+final class Andernet_PostureUITests: BaseUITest {
+    
+    // MARK: - Smoke Tests
+    
     @MainActor
-    func testExample() throws {
-        // UI tests must launch the application that they test.
-        let app = XCUIApplication()
-        app.launch()
-
-        // Use XCTAssert and related functions to verify your tests produce the correct results.
+    func testAppLaunches() throws {
+        // Verify app launches successfully
+        XCTAssertTrue(app.exists, "App should launch")
+        
+        // Verify main UI elements appear
+        let tabBar = app.tabBars.firstMatch
+        XCTAssertTrue(tabBar.waitForExistence(timeout: 5), "Tab bar should appear after launch")
+        
+        takeScreenshot(named: "App Launch")
     }
-
+    
+    @MainActor
+    func testMainTabsExist() throws {
+        // Verify all main tabs are present
+        let tabBar = TabBar(app: app)
+        
+        XCTAssertTrue(tabBar.dashboardTab.exists, "Dashboard tab should exist")
+        XCTAssertTrue(tabBar.sessionsTab.exists, "Sessions tab should exist")
+        XCTAssertTrue(tabBar.captureTab.exists, "Capture tab should exist")
+        XCTAssertTrue(tabBar.testsTab.exists, "Tests tab should exist")
+        XCTAssertTrue(tabBar.settingsTab.exists, "Settings tab should exist")
+    }
+    
+    @MainActor
+    func testBasicNavigation() throws {
+        let tabBar = TabBar(app: app)
+        
+        // Test basic tab navigation
+        tabBar.navigateToDashboard()
+        XCTAssertTrue(DashboardPage(app: app).exists())
+        
+        tabBar.navigateToSessions()
+        XCTAssertTrue(SessionsListPage(app: app).exists())
+        
+        tabBar.navigateToSettings()
+        XCTAssertTrue(SettingsPage(app: app).exists())
+    }
+    
+    @MainActor
+    func testAppDoesNotCrash() throws {
+        // Basic stability test - navigate through all tabs
+        let tabBar = TabBar(app: app)
+        
+        tabBar.navigateToDashboard()
+        tabBar.navigateToSessions()
+        tabBar.navigateToCapture()
+        CapturePage(app: app).handleCameraPermissions()
+        tabBar.navigateToTests()
+        tabBar.navigateToSettings()
+        tabBar.navigateToDashboard()
+        
+        // Verify app is still running
+        XCTAssertTrue(app.exists, "App should still be running after navigation")
+        XCTAssertTrue(tabBar.tabBar.exists, "Tab bar should still be visible")
+    }
+    
     @MainActor
     func testLaunchPerformance() throws {
         // This measures how long it takes to launch your application.
