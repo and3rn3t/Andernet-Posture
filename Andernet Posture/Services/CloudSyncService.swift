@@ -13,6 +13,7 @@ import CoreData
 import os.log
 import Combine
 import Network
+import UIKit
 
 private let logger = Logger(subsystem: "dev.andernet.posture", category: "CloudSync")
 
@@ -87,11 +88,6 @@ final class CloudSyncService {
         startNetworkMonitoring()
         startLifecycleMonitoring()
     }
-    
-    deinit {
-        networkMonitor.cancel()
-        timeoutTimer?.invalidate()
-    }
 
     // MARK: - CloudKit Event Monitoring
 
@@ -157,7 +153,7 @@ final class CloudSyncService {
         }
     }
 
-    nonisolated private func handleCloudKitEvent(_ notification: Notification) {
+    private func handleCloudKitEvent(_ notification: Notification) {
         guard let event = notification.userInfo?[NSPersistentCloudKitContainer.eventNotificationUserInfoKey]
                 as? NSPersistentCloudKitContainer.Event else {
             logger.debug("Received cloud event notification without parseable event.")

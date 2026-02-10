@@ -91,7 +91,6 @@ final class KeyValueStoreSync: ObservableObject {
         // Update last successful sync timestamp
         lastSuccessfulSync = Date.now
     }
-    }
 
     // MARK: - Push Local → iCloud
 
