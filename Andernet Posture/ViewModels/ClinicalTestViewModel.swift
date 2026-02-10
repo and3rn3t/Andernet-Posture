@@ -45,12 +45,21 @@ final class ClinicalTestViewModel {
     // 6MWT results
     var sixMWTResult: SixMinuteWalkResult?
     var sixMWTDistance: Double = 0
+    var sixMWTCompleteResult: SixMWTCompleteResult?
+    var sixMWTLiveMetrics: SixMWTLiveMetrics?
+    var sixMWTEncouragementMessage: String?
+    var sixMWTIsResting: Bool = false
+
+    // Borg scale (user-reported)
+    var borgDyspneaScale: Int?
+    var borgFatigueScale: Int?
 
     // MARK: - Dependencies
 
     private let balanceAnalyzer: any BalanceAnalyzer
     private let cardioEstimator: any CardioEstimator
     private let healthKitService: any HealthKitService
+    private let sixMWTProtocol: any SixMWTProtocol
 
     // MARK: - Private
 
@@ -63,11 +72,15 @@ final class ClinicalTestViewModel {
     init(
         balanceAnalyzer: any BalanceAnalyzer = DefaultBalanceAnalyzer(),
         cardioEstimator: any CardioEstimator = DefaultCardioEstimator(),
-        healthKitService: any HealthKitService = DefaultHealthKitService()
+        healthKitService: any HealthKitService = DefaultHealthKitService(),
+        sixMWTProtocol: any SixMWTProtocol = DefaultSixMWTProtocol()
     ) {
         self.balanceAnalyzer = balanceAnalyzer
         self.cardioEstimator = cardioEstimator
         self.healthKitService = healthKitService
+        self.sixMWTProtocol = sixMWTProtocol
+
+        setup6MWTCallbacks()
     }
 
     deinit {
@@ -152,13 +165,19 @@ final class ClinicalTestViewModel {
         }
     }
 
-    // MARK: - 6MWT Protocol
+    // MARK: - 6MWT Protocol (Sensor-Based)
 
-    /// Start 6-Minute Walk Test.
+    /// Start 6-Minute Walk Test using dedicated sensor protocol.
     func start6MWT() {
         testType = .sixMinuteWalk
         currentStep = 0
         sixMWTDistance = 0
+        sixMWTCompleteResult = nil
+        sixMWTLiveMetrics = nil
+        sixMWTEncouragementMessage = nil
+        sixMWTIsResting = false
+        borgDyspneaScale = nil
+        borgFatigueScale = nil
         let instructions = sixMWTInstructions()
         testState = .instructing(step: 1, totalSteps: instructions.count, instruction: instructions[0])
     }
@@ -170,16 +189,8 @@ final class ClinicalTestViewModel {
         if currentStep < instructions.count {
             testState = .instructing(step: currentStep + 1, totalSteps: instructions.count, instruction: instructions[currentStep])
         } else if currentStep == instructions.count {
-            startCountdown {
-                self.testStartTime = Date()
-                self.testState = .running(phaseLabel: "Walk at your normal pace (6 minutes)")
-                self.startTimer()
-                // Auto-complete after 6 minutes via cancellable timer
-                self.sixMWTAutoCompleteTimer?.invalidate()
-                self.sixMWTAutoCompleteTimer = Timer.scheduledTimer(withTimeInterval: 360, repeats: false) { [weak self] _ in
-                    self?.complete6MWT()
-                }
-            }
+            // Start the sensor-based 6MWT protocol
+            sixMWTProtocol.start(config: .standard)
         }
     }
 
@@ -188,13 +199,44 @@ final class ClinicalTestViewModel {
         sixMWTDistance = distanceM
     }
 
-    /// Complete 6MWT (auto or manual).
+    /// Provide ARKit root position to 6MWT protocol for distance fusion.
+    func update6MWTARKitPosition(x: Float, z: Float) {
+        (sixMWTProtocol as? DefaultSixMWTProtocol)?.updateARKitPosition(x: x, z: z)
+    }
+
+    /// Mark a rest stop start.
+    func mark6MWTRestStart() {
+        sixMWTProtocol.markRestStart()
+        sixMWTIsResting = true
+    }
+
+    /// Mark a rest stop end.
+    func mark6MWTRestEnd() {
+        sixMWTProtocol.markRestEnd()
+        sixMWTIsResting = false
+    }
+
+    /// Complete 6MWT (auto or manual) with user demographics and Borg scales.
     func complete6MWT(age: Int? = nil, heightM: Double? = nil, weightKg: Double? = nil, sexIsMale: Bool? = nil) {
         stopTimer()
         sixMWTAutoCompleteTimer?.invalidate()
         sixMWTAutoCompleteTimer = nil
+
+        // Complete the protocol and get full results
+        let result = sixMWTProtocol.complete(
+            borgDyspnea: borgDyspneaScale,
+            borgFatigue: borgFatigueScale,
+            age: age,
+            heightM: heightM,
+            weightKg: weightKg,
+            sexIsMale: sexIsMale
+        )
+        sixMWTCompleteResult = result
+        sixMWTDistance = result.distanceM
+
+        // Also produce the legacy SixMinuteWalkResult for backward compatibility
         sixMWTResult = cardioEstimator.evaluate6MWT(
-            distanceM: sixMWTDistance,
+            distanceM: result.distanceM,
             age: age,
             heightM: heightM,
             weightKg: weightKg,
@@ -203,9 +245,9 @@ final class ClinicalTestViewModel {
         testState = .completed
 
         // Save 6MWT distance to HealthKit
-        if UserDefaults.standard.bool(forKey: "healthKitSync"), sixMWTDistance > 0 {
+        if UserDefaults.standard.bool(forKey: "healthKitSync"), result.distanceM > 0 {
             let hkService = healthKitService
-            let distance = sixMWTDistance
+            let distance = result.distanceM
             Task {
                 do {
                     try await hkService.saveSixMWTDistance(distance, date: Date())
@@ -216,12 +258,47 @@ final class ClinicalTestViewModel {
         }
     }
 
+    private func setup6MWTCallbacks() {
+        sixMWTProtocol.onPhaseChange = { [weak self] phase in
+            guard let self else { return }
+            switch phase {
+            case .countdown(let seconds):
+                self.testState = .countdown(seconds: seconds)
+            case .walking:
+                self.testState = .running(phaseLabel: "Walk at your normal pace")
+                self.startTimer()
+            case .encouragement(let message, _):
+                self.sixMWTEncouragementMessage = message
+            case .completed:
+                // Auto-complete calls complete6MWT
+                if self.sixMWTCompleteResult == nil {
+                    self.complete6MWT()
+                }
+            case .cancelled:
+                self.testState = .cancelled
+            default:
+                break
+            }
+        }
+
+        sixMWTProtocol.onMetricsUpdate = { [weak self] metrics in
+            self?.sixMWTLiveMetrics = metrics
+            self?.sixMWTDistance = metrics.distanceM
+            self?.elapsedTime = metrics.elapsedTimeSec
+        }
+
+        sixMWTProtocol.onEncouragement = { [weak self] message in
+            self?.sixMWTEncouragementMessage = message
+        }
+    }
+
     // MARK: - Cancel
 
     func cancelTest() {
         stopTimer()
         sixMWTAutoCompleteTimer?.invalidate()
         sixMWTAutoCompleteTimer = nil
+        sixMWTProtocol.cancel()
         testState = .cancelled
         balanceAnalyzer.reset()
     }
@@ -251,7 +328,7 @@ final class ClinicalTestViewModel {
             "You will walk at your normal pace for 6 minutes.",
             "Walk back and forth along a flat, unobstructed hallway (at least 20 meters is ideal).",
             "Walk at your own pace. You may slow down or stop to rest if needed, but resume walking as soon as you can.",
-            "Place the device where the camera can track you. Tap 'Start' when ready."
+            "Keep your phone with you (pocket, hand, or waistband). Sensors will automatically track your distance, steps, and pace. Tap 'Start' when ready."
         ]
     }
 

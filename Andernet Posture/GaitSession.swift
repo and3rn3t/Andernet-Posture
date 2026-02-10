@@ -78,6 +78,32 @@ final class GaitSession {
     var walkRatio: Double?
     var estimatedMET: Double?
 
+    // Distance tracking (sensor-derived)
+    var totalDistanceM: Double?
+    var pedometerDistanceM: Double?
+    var pedometerStepCount: Int?
+    var floorsAscended: Int?
+    var floorsDescended: Int?
+
+    // IMU-derived metrics
+    var imuCadenceSPM: Double?
+    var imuStepCount: Int?
+    var imuSwayRmsML: Double?
+    var imuSwayRmsAP: Double?
+    var imuSwayJerkRMS: Double?
+    var dominantSwayFrequencyHz: Double?
+
+    // Trunk motion (gyroscope-derived)
+    var trunkPeakRotationVelocityDPS: Double?
+    var trunkAvgRotationRangeDeg: Double?
+    var turnCount: Int?
+    var trunkRotationAsymmetryPercent: Double?
+    var trunkLateralFlexionAvgDeg: Double?
+    var movementRegularityIndex: Double?
+
+    // 6MWT-specific data (JSON-encoded)
+    @Attribute(.externalStorage) var sixMWTResultData: Data?
+
     // Pain risk alerts (JSON-encoded)
     @Attribute(.externalStorage) var painRiskAlertsData: Data?
 

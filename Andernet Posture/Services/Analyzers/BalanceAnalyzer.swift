@@ -53,6 +53,18 @@ protocol BalanceAnalyzer: AnyObject {
     /// Check if the subject is standing still (not walking).
     var isStanding: Bool { get }
 
+    /// Process an IMU accelerometer frame for higher-fidelity sway analysis.
+    /// Accelerometer runs at 60 Hz vs ARKit's ~30 Hz, providing better temporal resolution.
+    func processIMUFrame(
+        timestamp: TimeInterval,
+        userAccelerationX: Double,   // mediolateral
+        userAccelerationY: Double,   // vertical
+        userAccelerationZ: Double    // anteroposterior
+    )
+
+    /// IMU-derived sway metrics (higher temporal resolution than ARKit-only).
+    var imuSwayMetrics: IMUSwayMetrics? { get }
+
     /// Start Romberg eyes-open phase.
     func startRombergEyesOpen()
     /// Transition to Romberg eyes-closed phase.
@@ -62,6 +74,20 @@ protocol BalanceAnalyzer: AnyObject {
 
     /// Reset all state.
     func reset()
+}
+
+/// IMU-derived sway metrics at accelerometer sampling rate (60 Hz).
+struct IMUSwayMetrics: Sendable {
+    /// Root-mean-square of mediolateral acceleration (G). Higher = more lateral sway.
+    let rmsAccelerationML: Double
+    /// Root-mean-square of anteroposterior acceleration (G). Higher = more AP sway.
+    let rmsAccelerationAP: Double
+    /// Jerk (derivative of acceleration) RMS — higher = less smooth balance.
+    let jerkRMS: Double
+    /// Frequency of dominant sway oscillation (Hz). Normal quiet stance ≈ 0.1-0.5 Hz.
+    let dominantSwayFrequencyHz: Double
+    /// Sample count used for computation.
+    let sampleCount: Int
 }
 
 // MARK: - Default Implementation
@@ -94,6 +120,23 @@ final class DefaultBalanceAnalyzer: BalanceAnalyzer {
     private var rombergPhase: RombergPhase = .none
     private var eyesOpenPositions: [TimedPosition] = []
     private var eyesClosedPositions: [TimedPosition] = []
+
+    // MARK: IMU Sway State
+
+    private struct IMUAccelSample {
+        let timestamp: TimeInterval
+        let ml: Double    // mediolateral (X)
+        let ap: Double    // anteroposterior (Z)
+    }
+
+    private var imuSamples: [IMUAccelSample] = []
+    private let imuSwayWindowSec: TimeInterval = 5.0
+    private let minIMUSamples = 30  // ~0.5 sec at 60 Hz
+    private var _imuSwayMetrics: IMUSwayMetrics?
+    private(set) var imuSwayMetrics: IMUSwayMetrics? {
+        get { _imuSwayMetrics }
+        set { _imuSwayMetrics = newValue }
+    }
 
     // MARK: - Process Frame
 
@@ -163,12 +206,85 @@ final class DefaultBalanceAnalyzer: BalanceAnalyzer {
         )
     }
 
+    // MARK: - IMU Sway Processing
+
+    func processIMUFrame(
+        timestamp: TimeInterval,
+        userAccelerationX: Double,
+        userAccelerationY: Double,
+        userAccelerationZ: Double
+    ) {
+        let sample = IMUAccelSample(timestamp: timestamp, ml: userAccelerationX, ap: userAccelerationZ)
+        imuSamples.append(sample)
+
+        // Trim to window
+        imuSamples = imuSamples.filter { timestamp - $0.timestamp <= imuSwayWindowSec }
+
+        // Compute IMU sway metrics when standing (or always, let caller decide)
+        guard imuSamples.count >= minIMUSamples else {
+            _imuSwayMetrics = nil
+            return
+        }
+
+        _imuSwayMetrics = computeIMUSwayMetrics()
+    }
+
+    private func computeIMUSwayMetrics() -> IMUSwayMetrics {
+        let n = Double(imuSamples.count)
+
+        // RMS of mediolateral acceleration
+        let mlSquaredSum = imuSamples.reduce(0.0) { $0 + $1.ml * $1.ml }
+        let rmsML = sqrt(mlSquaredSum / n)
+
+        // RMS of anteroposterior acceleration
+        let apSquaredSum = imuSamples.reduce(0.0) { $0 + $1.ap * $1.ap }
+        let rmsAP = sqrt(apSquaredSum / n)
+
+        // Jerk RMS (derivative of acceleration)
+        var jerkSquaredSum = 0.0
+        var jerkCount = 0
+        for i in 1..<imuSamples.count {
+            let dt = imuSamples[i].timestamp - imuSamples[i - 1].timestamp
+            guard dt > 0.001 else { continue }
+            let jerkML = (imuSamples[i].ml - imuSamples[i - 1].ml) / dt
+            let jerkAP = (imuSamples[i].ap - imuSamples[i - 1].ap) / dt
+            jerkSquaredSum += jerkML * jerkML + jerkAP * jerkAP
+            jerkCount += 1
+        }
+        let jerkRMS = jerkCount > 0 ? sqrt(jerkSquaredSum / Double(jerkCount)) : 0
+
+        // Dominant sway frequency via zero-crossing rate of ML acceleration
+        // (Simple heuristic — full FFT is in SmoothnessAnalyzer)
+        var zeroCrossings = 0
+        let mlValues = imuSamples.map(\.ml)
+        let mlMean = mlValues.reduce(0, +) / n
+        for i in 1..<mlValues.count {
+            let prev = mlValues[i - 1] - mlMean
+            let curr = mlValues[i] - mlMean
+            if (prev >= 0 && curr < 0) || (prev < 0 && curr >= 0) {
+                zeroCrossings += 1
+            }
+        }
+        let totalTime = (imuSamples.last?.timestamp ?? 0) - (imuSamples.first?.timestamp ?? 0)
+        let dominantFreq = totalTime > 0 ? Double(zeroCrossings) / (2.0 * totalTime) : 0
+
+        return IMUSwayMetrics(
+            rmsAccelerationML: rmsML,
+            rmsAccelerationAP: rmsAP,
+            jerkRMS: jerkRMS,
+            dominantSwayFrequencyHz: dominantFreq,
+            sampleCount: imuSamples.count
+        )
+    }
+
     func reset() {
         positions.removeAll()
         isStanding = false
         rombergPhase = .none
         eyesOpenPositions.removeAll()
         eyesClosedPositions.removeAll()
+        imuSamples.removeAll()
+        _imuSwayMetrics = nil
     }
 
     // MARK: - Private Helpers

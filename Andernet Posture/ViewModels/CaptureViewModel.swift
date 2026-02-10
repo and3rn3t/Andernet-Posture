@@ -35,6 +35,9 @@ final class CaptureViewModel {
     private let frailtyScreener: any FrailtyScreener
     private let cardioEstimator: any CardioEstimator
     private let healthKitService: any HealthKitService
+    private let pedometerService: any PedometerService
+    private let imuStepDetector: any IMUStepDetector
+    private let trunkMotionAnalyzer: any TrunkMotionAnalyzer
 
     // MARK: - Published state
 
@@ -68,6 +71,24 @@ final class CaptureViewModel {
     // Live balance
     var swayVelocityMMS: Double = 0
     var isStanding: Bool = false
+
+    // IMU-derived live metrics
+    var imuCadenceSPM: Double = 0
+    var imuStepCount: Int = 0
+    var imuSwayRmsML: Double = 0
+    var imuSwayRmsAP: Double = 0
+
+    // Pedometer live metrics
+    var pedometerDistanceM: Double = 0
+    var pedometerStepCount: Int = 0
+    var pedometerCadenceSPM: Double = 0
+
+    // Distance accumulation (best available)
+    var totalDistanceM: Double = 0
+
+    // Trunk motion live metrics
+    var trunkRotationVelocityDPS: Double = 0
+    var turnCount: Int = 0
 
     // Live ROM
     var hipFlexionLeftDeg: Double = 0
@@ -112,6 +133,10 @@ final class CaptureViewModel {
     private var postureMetricsHistory: [PostureMetrics] = []
     private var stepWidthValues: [Double] = []
 
+    // Distance accumulation from ARKit root displacement
+    private var lastRootPosition: SIMD3<Float>?
+    private var accumulatedARKitDistanceM: Double = 0
+
     // MARK: - Init
 
     init(
@@ -130,7 +155,10 @@ final class CaptureViewModel {
         painRiskEngine: any PainRiskEngine = DefaultPainRiskEngine(),
         frailtyScreener: any FrailtyScreener = DefaultFrailtyScreener(),
         cardioEstimator: any CardioEstimator = DefaultCardioEstimator(),
-        healthKitService: any HealthKitService = DefaultHealthKitService()
+        healthKitService: any HealthKitService = DefaultHealthKitService(),
+        pedometerService: any PedometerService = CorePedometerService(),
+        imuStepDetector: any IMUStepDetector = DefaultIMUStepDetector(),
+        trunkMotionAnalyzer: any TrunkMotionAnalyzer = DefaultTrunkMotionAnalyzer()
     ) {
         self.gaitAnalyzer = gaitAnalyzer
         self.postureAnalyzer = postureAnalyzer
@@ -148,6 +176,9 @@ final class CaptureViewModel {
         self.frailtyScreener = frailtyScreener
         self.cardioEstimator = cardioEstimator
         self.healthKitService = healthKitService
+        self.pedometerService = pedometerService
+        self.imuStepDetector = imuStepDetector
+        self.trunkMotionAnalyzer = trunkMotionAnalyzer
 
         setupCallbacks()
     }
@@ -169,11 +200,13 @@ final class CaptureViewModel {
             recordingState = .paused
             recorder.pause()
             motionService.stop()
+            pedometerService.stop()
             timer?.invalidate()
         case .paused:
             recordingState = .recording
             recorder.resume()
             motionService.start()
+            pedometerService.startLiveUpdates()
             startTimer()
         default:
             break
@@ -184,6 +217,7 @@ final class CaptureViewModel {
     func stopCapture() {
         recorder.stop()
         motionService.stop()
+        pedometerService.stop()
         timer?.invalidate()
         recordingState = .finished
     }
@@ -260,6 +294,34 @@ final class CaptureViewModel {
         let smoothness = smoothnessAnalyzer.analyze()
         session.sparcScore = smoothness.sparcScore
         session.harmonicRatio = smoothness.harmonicRatioAP
+
+        // Distance tracking (sensor-derived)
+        session.totalDistanceM = totalDistanceM
+        session.pedometerDistanceM = pedometerDistanceM > 0 ? pedometerDistanceM : nil
+        session.pedometerStepCount = pedometerStepCount > 0 ? pedometerStepCount : nil
+        if let snapshot = pedometerService.latestSnapshot {
+            session.floorsAscended = snapshot.floorsAscended
+            session.floorsDescended = snapshot.floorsDescended
+        }
+
+        // IMU-derived metrics
+        session.imuCadenceSPM = imuCadenceSPM > 0 ? imuCadenceSPM : nil
+        session.imuStepCount = imuStepCount > 0 ? imuStepCount : nil
+        if let imuSway = balanceAnalyzer.imuSwayMetrics {
+            session.imuSwayRmsML = imuSway.rmsAccelerationML
+            session.imuSwayRmsAP = imuSway.rmsAccelerationAP
+            session.imuSwayJerkRMS = imuSway.jerkRMS
+            session.dominantSwayFrequencyHz = imuSway.dominantSwayFrequencyHz
+        }
+
+        // Trunk motion (gyroscope-derived)
+        let trunkMotion = trunkMotionAnalyzer.analyze()
+        session.trunkPeakRotationVelocityDPS = trunkMotion.peakRotationVelocityDPS
+        session.trunkAvgRotationRangeDeg = trunkMotion.averageRotationRangeDeg
+        session.turnCount = trunkMotion.turnCount
+        session.trunkRotationAsymmetryPercent = trunkMotion.rotationAsymmetryPercent
+        session.trunkLateralFlexionAvgDeg = trunkMotion.averageLateralFlexionDeg
+        session.movementRegularityIndex = trunkMotion.movementRegularityIndex
 
         // Cardio estimate
         let cardio = cardioEstimator.estimate(
@@ -349,7 +411,7 @@ final class CaptureViewModel {
             let speed = session.averageWalkingSpeedMPS
             let stride = session.averageStrideLengthM
             let asymmetry = session.gaitAsymmetryPercent.map { $0 / 100.0 }
-            let distance: Double? = nil  // Not directly tracked as raw distance
+            let distance = session.totalDistanceM   // Now tracked from sensors
             let start = session.date.addingTimeInterval(-session.duration)
             let end = session.date
             Task {
@@ -376,6 +438,8 @@ final class CaptureViewModel {
         romAnalyzer.reset()
         fatigueAnalyzer.reset()
         smoothnessAnalyzer.reset()
+        imuStepDetector.reset()
+        trunkMotionAnalyzer.reset()
         resetMetrics()
 
         return session
@@ -384,15 +448,69 @@ final class CaptureViewModel {
     // MARK: - Private
 
     private func setupCallbacks() {
+        // CoreMotion → smoothness, IMU steps, trunk motion, balance IMU
         motionService.onMotionUpdate = { [weak self] frame in
-            self?.recorder.recordMotionFrame(frame)
+            guard let self else { return }
+            self.recorder.recordMotionFrame(frame)
+
             // Feed accelerometer to smoothness analyzer
-            self?.smoothnessAnalyzer.recordSample(
+            self.smoothnessAnalyzer.recordSample(
                 timestamp: frame.timestamp,
                 accelerationAP: frame.userAccelerationZ,
                 accelerationML: frame.userAccelerationX,
                 accelerationV: frame.userAccelerationY
             )
+
+            // IMU step detection (validates ARKit steps + independent cadence)
+            if let imuStep = self.imuStepDetector.processSample(
+                timestamp: frame.timestamp,
+                userAccelerationY: frame.userAccelerationY,
+                userAccelerationX: frame.userAccelerationX,
+                userAccelerationZ: frame.userAccelerationZ
+            ) {
+                self.imuCadenceSPM = imuStep.instantCadenceSPM
+                self.imuStepCount = self.imuStepDetector.stepCount
+            }
+
+            // Trunk motion analysis (gyroscope + attitude)
+            self.trunkMotionAnalyzer.processFrame(frame)
+
+            // IMU-based balance sway (60 Hz, higher resolution than ARKit)
+            self.balanceAnalyzer.processIMUFrame(
+                timestamp: frame.timestamp,
+                userAccelerationX: frame.userAccelerationX,
+                userAccelerationY: frame.userAccelerationY,
+                userAccelerationZ: frame.userAccelerationZ
+            )
+            if let imuSway = self.balanceAnalyzer.imuSwayMetrics {
+                self.imuSwayRmsML = imuSway.rmsAccelerationML
+                self.imuSwayRmsAP = imuSway.rmsAccelerationAP
+            }
+        }
+
+        // CMPedometer → distance + step count + cadence
+        pedometerService.onPedometerUpdate = { [weak self] snapshot in
+            guard let self else { return }
+            self.pedometerDistanceM = snapshot.distanceM ?? 0
+            self.pedometerStepCount = snapshot.stepCount
+            if let cadence = snapshot.currentCadenceSPM {
+                self.pedometerCadenceSPM = cadence
+            }
+            // Update total distance (pedometer is most accurate source)
+            self.updateTotalDistance()
+        }
+    }
+
+    /// Compute best available distance from all sources.
+    private func updateTotalDistance() {
+        // Priority: pedometer > ARKit displacement > step estimate
+        if pedometerDistanceM > 0 {
+            totalDistanceM = pedometerDistanceM
+        } else if accumulatedARKitDistanceM > 0 {
+            totalDistanceM = accumulatedARKitDistanceM
+        } else if stepCount > 0 && avgStrideLengthM > 0 {
+            // Fallback: step count × average stride / 2 (stride = 2 steps)
+            totalDistanceM = Double(stepCount) * avgStrideLengthM / 2.0
         }
     }
 
@@ -417,12 +535,28 @@ final class CaptureViewModel {
                 recordingState = .recording
                 recorder.startRecording()
                 motionService.start()
+                pedometerService.startLiveUpdates()
             }
             return
         }
 
         guard recordingState == .recording else { return }
         frameIndex += 1
+
+        // ── Distance accumulation from ARKit root displacement ──
+        if let root = joints[.root] {
+            if let lastPos = lastRootPosition {
+                let dx = root.x - lastPos.x
+                let dz = root.z - lastPos.z
+                let dist = sqrt(dx * dx + dz * dz)
+                // Filter out noise (<5cm) and teleports (>2m)
+                if dist > 0.05 && dist < 2.0 {
+                    accumulatedARKitDistanceM += Double(dist)
+                }
+            }
+            lastRootPosition = root
+            updateTotalDistance()
+        }
 
         // ── Posture analysis ──
         var currentPosture: PostureMetrics?
@@ -515,9 +649,12 @@ final class CaptureViewModel {
             }
         }
 
-        // ── Record detected step ──
+        // ── Record detected step (with IMU cross-validation) ──
         if let strike = gaitMetrics.stepDetected {
-            let stepEvent = StepEvent(
+            // Cross-validate ARKit step with IMU accelerometer peak
+            let imuConfidence = imuStepDetector.validateARKitStep(at: strike.timestamp)
+
+            var stepEvent = StepEvent(
                 timestamp: strike.timestamp,
                 foot: strike.foot,
                 positionX: strike.position.x,
@@ -528,8 +665,17 @@ final class CaptureViewModel {
                 impactVelocity: strike.impactVelocity.map(Double.init),
                 footClearanceM: strike.footClearanceM.map(Double.init)
             )
-            recorder.recordStep(stepEvent)
-            stepCount = recorder.stepCount
+            // Only record steps with reasonable IMU confidence (filter false positives)
+            // Threshold of 0.2 is lenient — purely supplementary validation
+            if imuConfidence >= 0.2 {
+                recorder.recordStep(stepEvent)
+                stepCount = recorder.stepCount
+            } else {
+                // Still record but log for analysis quality tracking
+                recorder.recordStep(stepEvent)
+                stepCount = recorder.stepCount
+                AppLogger.analysis.debug("Low IMU confidence (\(String(format: "%.2f", imuConfidence))) for ARKit step at \(String(format: "%.2f", strike.timestamp))s")
+            }
 
             if let sw = strike.stepWidthCm {
                 stepWidthValues.append(Double(sw))
@@ -617,5 +763,19 @@ final class CaptureViewModel {
         calibrationStartTime = nil
         postureMetricsHistory.removeAll()
         stepWidthValues.removeAll()
+
+        // Sensor-derived metrics
+        imuCadenceSPM = 0
+        imuStepCount = 0
+        imuSwayRmsML = 0
+        imuSwayRmsAP = 0
+        pedometerDistanceM = 0
+        pedometerStepCount = 0
+        pedometerCadenceSPM = 0
+        totalDistanceM = 0
+        trunkRotationVelocityDPS = 0
+        turnCount = 0
+        lastRootPosition = nil
+        accumulatedARKitDistanceM = 0
     }
 }
