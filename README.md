@@ -80,6 +80,8 @@ Andernet Posture/
 - **HealthKit** — Read walking metrics, write session summaries
 - **Swift Charts** — Posture score trends and gait analysis visualizations
 
+For a detailed architecture overview with Mermaid diagrams, see **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**.
+
 ## Build Settings
 
 | Setting | Value | Purpose |
