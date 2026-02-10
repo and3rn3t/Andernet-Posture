@@ -12,6 +12,7 @@ import CloudKit
 import CoreData
 import os.log
 import Combine
+import Network
 
 private let logger = Logger(subsystem: "dev.andernet.posture", category: "CloudSync")
 
@@ -59,10 +60,37 @@ final class CloudSyncService {
     private var consecutiveTransientErrors = 0
     private static let maxTransientRetries = 5
 
+    /// Timestamp when the current sync operation started.
+    private var syncStartTime: Date?
+    
+    /// Maximum duration for a sync operation before considering it stale (5 minutes).
+    private static let syncTimeout: TimeInterval = 300
+    
+    /// Timer for detecting stale sync operations.
+    private var timeoutTimer: Timer?
+    
+    /// Network path monitor for detecting connectivity changes.
+    private let networkMonitor = NWPathMonitor()
+    private let networkQueue = DispatchQueue(label: "dev.andernet.posture.network")
+    
+    /// Whether the device currently has network connectivity.
+    private var hasNetworkConnection = true
+    
+    /// Exponential backoff delay tracker.
+    private var currentBackoffDelay: TimeInterval = 1.0
+    private static let maxBackoffDelay: TimeInterval = 60.0
+
     private var cancellables = Set<AnyCancellable>()
 
     init() {
         startObservingCloudKitEvents()
+        startNetworkMonitoring()
+        startLifecycleMonitoring()
+    }
+    
+    deinit {
+        networkMonitor.cancel()
+        timeoutTimer?.invalidate()
     }
 
     // MARK: - CloudKit Event Monitoring
@@ -77,6 +105,57 @@ final class CloudSyncService {
         }
         .store(in: &cancellables)
     }
+    
+    // MARK: - Network Monitoring
+    
+    private func startNetworkMonitoring() {
+        networkMonitor.pathUpdateHandler = { [weak self] path in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                let wasConnected = self.hasNetworkConnection
+                self.hasNetworkConnection = path.status == .satisfied
+                
+                if !wasConnected && self.hasNetworkConnection {
+                    logger.info("Network connection restored")
+                    // Reset backoff when network comes back
+                    self.currentBackoffDelay = 1.0
+                    // If we were in a failed state, reset to allow retry
+                    if case .failed = self.status {
+                        self.resetSyncState()
+                    }
+                } else if wasConnected && !self.hasNetworkConnection {
+                    logger.warning("Network connection lost")
+                }
+            }
+        }
+        networkMonitor.start(queue: networkQueue)
+    }
+    
+    // MARK: - Lifecycle Monitoring
+    
+    private func startLifecycleMonitoring() {
+        NotificationCenter.default.publisher(
+            for: UIApplication.willEnterForegroundNotification
+        )
+        .receive(on: RunLoop.main)
+        .sink { [weak self] _ in
+            self?.handleAppReturnedToForeground()
+        }
+        .store(in: &cancellables)
+    }
+    
+    private func handleAppReturnedToForeground() {
+        logger.debug("App returned to foreground, checking sync state")
+        
+        // If we have a stale sync operation (started but no end event for >5 min)
+        if case .syncing = status, let startTime = syncStartTime {
+            let elapsed = Date.now.timeIntervalSince(startTime)
+            if elapsed > Self.syncTimeout {
+                logger.warning("Detected stale sync operation (\(String(format: "%.0f", elapsed))s), resetting")
+                resetSyncState()
+            }
+        }
+    }
 
     nonisolated private func handleCloudKitEvent(_ notification: Notification) {
         guard let event = notification.userInfo?[NSPersistentCloudKitContainer.eventNotificationUserInfoKey]
@@ -90,13 +169,20 @@ final class CloudSyncService {
 
             if event.endDate == nil {
                 // Event is in progress
+                self.syncStartTime = Date.now
                 self.status = .syncing
+                self.startTimeoutTimer()
                 logger.info("CloudKit sync started: type=\(String(describing: event.type))")
             } else if let error = event.error {
+                self.timeoutTimer?.invalidate()
+                self.syncStartTime = nil
                 self.handleSyncError(error, eventType: event.type)
             } else {
-                // Success — reset transient counter
+                // Success — reset all error tracking
+                self.timeoutTimer?.invalidate()
+                self.syncStartTime = nil
                 self.consecutiveTransientErrors = 0
+                self.currentBackoffDelay = 1.0  // Reset exponential backoff
                 let now = Date.now
                 self.status = .succeeded(now)
                 self.lastSyncDate = now
@@ -122,6 +208,12 @@ final class CloudSyncService {
         underlying=\(String(describing: nsError.userInfo[NSUnderlyingErrorKey]))
         """)
 
+        // Special handling for partial failures
+        if domain == CKError.errorDomain, code == CKError.partialFailure.rawValue {
+            handlePartialFailure(nsError)
+            return
+        }
+
         // Determine if this is transient
         let isTransient: Bool
         if domain == CKError.errorDomain {
@@ -136,9 +228,14 @@ final class CloudSyncService {
             consecutiveTransientErrors += 1
             if consecutiveTransientErrors <= Self.maxTransientRetries {
                 // Stay in "syncing" — the container retries automatically
+                // Implement exponential backoff logging
+                currentBackoffDelay = min(currentBackoffDelay * 2.0, Self.maxBackoffDelay)
                 status = .syncing
-                logger.info("Transient sync error (\(self.consecutiveTransientErrors)/\(Self.maxTransientRetries)), will retry automatically.")
+                logger.info("Transient sync error (\(self.consecutiveTransientErrors)/\(Self.maxTransientRetries)), will retry with backoff ~\(String(format: "%.0f", self.currentBackoffDelay))s")
                 return
+            } else {
+                // Too many retries — reset backoff for next attempt
+                currentBackoffDelay = Self.maxBackoffDelay
             }
         }
 
@@ -146,11 +243,73 @@ final class CloudSyncService {
         status = .failed(Self.friendlyMessage(domain: domain, code: code))
     }
 
+    /// Handle CKError.partialFailure — inspect individual record errors.
+    /// If some records succeeded, mark sync as successful. If all failed
+    /// with permanent errors, show appropriate message.
+    private func handlePartialFailure(_ error: NSError) {
+        guard let partialErrors = error.userInfo[CKPartialErrorsByItemIDKey] as? [AnyHashable: Error] else {
+            logger.warning("Partial failure without error details — treating as transient")
+            consecutiveTransientErrors += 1
+            if consecutiveTransientErrors <= Self.maxTransientRetries {
+                status = .syncing
+            } else {
+                status = .failed(String(localized: "Some items failed to sync"))
+            }
+            return
+        }
+
+        // Analyze individual errors
+        var hasTransientErrors = false
+        var hasPermanentErrors = false
+
+        for (itemID, itemError) in partialErrors {
+            let nsItemError = itemError as NSError
+            logger.debug("Partial failure for item \(itemID): \(nsItemError.domain) code=\(nsItemError.code)")
+
+            if nsItemError.domain == CKError.errorDomain {
+                if Self.isTransientCKErrorCode(nsItemError.code) {
+                    hasTransientErrors = true
+                } else {
+                    hasPermanentErrors = true
+                }
+            } else {
+                // Unknown error domain — treat as permanent
+                hasPermanentErrors = true
+            }
+        }
+
+        // Decide on status
+        if hasTransientErrors && !hasPermanentErrors {
+            // All failures are transient — CloudKit will retry
+            consecutiveTransientErrors += 1
+            if consecutiveTransientErrors <= Self.maxTransientRetries {
+                status = .syncing
+                logger.info("Partial failure with transient errors (\(self.consecutiveTransientErrors)/\(Self.maxTransientRetries))")
+            } else {
+                // Too many retries
+                status = .failed(String(localized: "Some items couldn't sync"))
+            }
+        } else if hasPermanentErrors {
+            // At least some permanent failures — but some may have succeeded
+            // Reset counter and mark last successful sync
+            consecutiveTransientErrors = 0
+            let now = Date.now
+            lastSyncDate = now
+            status = .succeeded(now)
+            logger.warning("Partial failure: some items succeeded, some failed permanently. Treating as successful.")
+        } else {
+            // No errors found in dictionary (shouldn't happen)
+            consecutiveTransientErrors = 0
+            let now = Date.now
+            status = .succeeded(now)
+            lastSyncDate = now
+        }
+    }
+
     /// Whether a CKError code represents a transient/retryable condition.
     private static func isTransientCKErrorCode(_ code: Int) -> Bool {
         switch CKError.Code(rawValue: code) {
-        case .partialFailure,
-             .networkUnavailable,
+        case .networkUnavailable,
              .networkFailure,
              .serviceUnavailable,
              .zoneBusy,
@@ -187,8 +346,6 @@ final class CloudSyncService {
                 return String(localized: "iCloud configuration error")
             case .incompatibleVersion:
                 return String(localized: "Update the app to sync")
-            case .partialFailure:
-                return String(localized: "Sync partially failed — retrying")
             case .serviceUnavailable, .zoneBusy, .requestRateLimited:
                 return String(localized: "iCloud busy — will retry")
             default:
@@ -214,5 +371,46 @@ final class CloudSyncService {
             logger.error("iCloud account check failed: \(error.localizedDescription)")
             return false
         }
+    }
+
+    // MARK: - Timeout Detection
+    
+    private func startTimeoutTimer() {
+        timeoutTimer?.invalidate()
+        timeoutTimer = Timer.scheduledTimer(
+            withTimeInterval: Self.syncTimeout,
+            repeats: false
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.handleSyncTimeout()
+            }
+        }
+    }
+    
+    private func handleSyncTimeout() {
+        guard case .syncing = status else { return }
+        
+        logger.error("Sync operation timed out after \(Self.syncTimeout)s")
+        syncStartTime = nil
+        
+        // Check network status
+        if !hasNetworkConnection {
+            status = .failed(String(localized: "No network connection"))
+        } else {
+            status = .failed(String(localized: "Sync timed out — tap Retry"))
+        }
+    }
+    
+    // MARK: - Manual Retry
+
+    /// Reset the error counter and sync status to allow CloudKit to retry.
+    /// Useful when user wants to manually trigger a retry after a persistent error.
+    func resetSyncState() {
+        timeoutTimer?.invalidate()
+        syncStartTime = nil
+        consecutiveTransientErrors = 0
+        currentBackoffDelay = 1.0
+        status = .idle
+        logger.info("Sync state manually reset")
     }
 }

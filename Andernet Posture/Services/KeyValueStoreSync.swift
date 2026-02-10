@@ -27,11 +27,17 @@ final class KeyValueStoreSync: ObservableObject {
     private let kvs = NSUbiquitousKeyValueStore.default
     private let defaults = UserDefaults.standard
     private var cancellables = Set<AnyCancellable>()
+    
+    /// Track last successful sync to detect stale operations.
+    private var lastSuccessfulSync: Date?
+    
+    /// Whether quota has been exceeded (shows warning in UI).
+    @Published private(set) var quotaExceeded = false
 
     private init() {
         startObserving()
-        // Force an initial pull from iCloud
-        kvs.synchronize()
+        // Force an initial pull from iCloud with retry logic
+        syncWithRetry()
     }
 
     // MARK: - Observe iCloud → Local
@@ -75,10 +81,16 @@ final class KeyValueStoreSync: ObservableObject {
 
         case NSUbiquitousKeyValueStoreQuotaViolationChange:
             logger.warning("iCloud KVS quota exceeded")
+            quotaExceeded = true
 
         default:
+            logger.debug("Unknown KVS change reason: \(reason)")
             break
         }
+        
+        // Update last successful sync timestamp
+        lastSuccessfulSync = Date.now
+    }
     }
 
     // MARK: - Push Local → iCloud
@@ -93,8 +105,14 @@ final class KeyValueStoreSync: ObservableObject {
             let value = defaults.string(forKey: key.rawValue) ?? "notSet"
             kvs.set(value, forKey: key.rawValue)
         }
-        kvs.synchronize()
-        logger.debug("Pushed \(key.rawValue) to iCloud KVS")
+        
+        let success = kvs.synchronize()
+        if success {
+            logger.debug("Pushed \(key.rawValue) to iCloud KVS")
+            lastSuccessfulSync = Date.now
+        } else {
+            logger.warning("Failed to synchronize \(key.rawValue) to iCloud KVS")
+        }
     }
 
     /// Push all synced keys to iCloud (e.g., on first launch after enabling sync).
@@ -103,22 +121,45 @@ final class KeyValueStoreSync: ObservableObject {
             push(key)
         }
     }
+    
+    // MARK: - Sync with Retry
+    
+    /// Attempt to sync with exponential backoff on failure.
+    private func syncWithRetry(attempt: Int = 0) {
+        let success = kvs.synchronize()
+        
+        if success {
+            logger.info("Initial KVS sync successful")
+            lastSuccessfulSync = Date.now
+        } else if attempt < 3 {
+            let delay = pow(2.0, Double(attempt))  // 1s, 2s, 4s
+            logger.warning("KVS sync failed (attempt \(attempt + 1)), retrying in \(String(format: "%.0f", delay))s")
+            
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+                self?.syncWithRetry(attempt: attempt + 1)
+            }
+        } else {
+            logger.error("KVS sync failed after 3 attempts")
+        }
+    }
 
     // MARK: - Pull iCloud → Local
 
     private func pullFromCloud(_ key: SyncedPreferenceKey) {
         switch key {
         case .userAge:
-            let cloudValue = kvs.object(forKey: key.rawValue) as? Int
-            if let cloudValue {
+            if let cloudValue = kvs.object(forKey: key.rawValue) as? Int {
                 defaults.set(cloudValue, forKey: key.rawValue)
                 logger.debug("Pulled userAge = \(cloudValue) from iCloud")
+            } else {
+                logger.debug("No cloud value for userAge")
             }
         case .userSex:
-            let cloudValue = kvs.string(forKey: key.rawValue)
-            if let cloudValue {
+            if let cloudValue = kvs.string(forKey: key.rawValue) {
                 defaults.set(cloudValue, forKey: key.rawValue)
                 logger.debug("Pulled userSex = \(cloudValue) from iCloud")
+            } else {
+                logger.debug("No cloud value for userSex")
             }
         }
     }

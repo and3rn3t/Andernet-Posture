@@ -18,6 +18,7 @@ struct Andernet_PostureApp: App {
     @State private var showSplash = true
     @State private var cloudSyncService = CloudSyncService()
     @State private var mlModelService = MLModelService.shared
+    @Environment(\.scenePhase) private var scenePhase
 
     init() {
         let schema = Schema([GaitSession.self, UserGoals.self])
@@ -86,6 +87,30 @@ struct Andernet_PostureApp: App {
         .modelContainer(sharedModelContainer)
         .environment(cloudSyncService)
         .environment(mlModelService)
+        .onChange(of: scenePhase) { oldPhase, newPhase in
+            handleScenePhaseChange(from: oldPhase, to: newPhase)
+        }
+    }
+    
+    // MARK: - Scene Phase Handling
+    
+    private func handleScenePhaseChange(from oldPhase: ScenePhase, to newPhase: ScenePhase) {
+        switch newPhase {
+        case .active:
+            logger.info("App became active")
+            // CloudSyncService will check for stale syncs via its own notification observer
+            
+        case .inactive:
+            logger.debug("App became inactive")
+            
+        case .background:
+            logger.info("App entered background")
+            // Save any pending changes (SwiftData auto-saves, but be explicit)
+            try? sharedModelContainer.mainContext.save()
+            
+        @unknown default:
+            break
+        }
     }
 
     // MARK: - Legacy Goals Migration

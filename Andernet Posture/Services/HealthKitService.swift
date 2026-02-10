@@ -9,6 +9,24 @@ import Foundation
 import HealthKit
 import os.log
 
+/// Errors specific to HealthKit operations.
+enum HealthKitError: LocalizedError {
+    case timeout
+    case notAvailable
+    case unauthorized
+    
+    var errorDescription: String? {
+        switch self {
+        case .timeout:
+            return "HealthKit operation timed out"
+        case .notAvailable:
+            return "HealthKit is not available on this device"
+        case .unauthorized:
+            return "HealthKit access not authorized"
+        }
+    }
+}
+
 /// User demographics read from HealthKit for normative comparison.
 struct UserDemographics: Sendable {
     let age: Int?
@@ -161,16 +179,31 @@ final class DefaultHealthKitService: HealthKitService {
 
         guard !samples.isEmpty else { return }
 
-        try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Void, Error>) in
-            store.save(samples) { _, error in
-                if let error {
-                    AppLogger.healthKit.error("Failed to save HealthKit samples: \(error.localizedDescription)")
-                    cont.resume(throwing: error)
-                } else {
-                    AppLogger.healthKit.info("Saved \(samples.count) HealthKit sample(s)")
-                    cont.resume()
+        // Add timeout to prevent hanging indefinitely
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            group.addTask {
+                try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Void, Error>) in
+                    self.store.save(samples) { _, error in
+                        if let error {
+                            AppLogger.healthKit.error("Failed to save HealthKit samples: \(error.localizedDescription)")
+                            cont.resume(throwing: error)
+                        } else {
+                            AppLogger.healthKit.info("Saved \(samples.count) HealthKit sample(s)")
+                            cont.resume()
+                        }
+                    }
                 }
             }
+            
+            // Timeout after 30 seconds
+            group.addTask {
+                try await Task.sleep(for: .seconds(30))
+                throw HealthKitError.timeout
+            }
+            
+            // Wait for the first task to complete (either success or timeout)
+            try await group.next()
+            group.cancelAll()
         }
     }
 
@@ -183,17 +216,33 @@ final class DefaultHealthKitService: HealthKitService {
         let type = HKQuantityType(.stepCount)
         let predicate = HKQuery.predicateForSamples(withStart: start, end: end)
 
-        return try await withCheckedThrowingContinuation { cont in
-            let query = HKStatisticsQuery(
-                quantityType: type,
-                quantitySamplePredicate: predicate,
-                options: .cumulativeSum
-            ) { _, result, error in
-                if let error { cont.resume(throwing: error); return }
-                let sum = result?.sumQuantity()?.doubleValue(for: .count()) ?? 0
-                cont.resume(returning: sum)
+        return try await withThrowingTaskGroup(of: Double.self) { group in
+            group.addTask {
+                try await withCheckedThrowingContinuation { cont in
+                    let query = HKStatisticsQuery(
+                        quantityType: type,
+                        quantitySamplePredicate: predicate,
+                        options: .cumulativeSum
+                    ) { _, result, error in
+                        if let error { cont.resume(throwing: error); return }
+                        let sum = result?.sumQuantity()?.doubleValue(for: .count()) ?? 0
+                        cont.resume(returning: sum)
+                    }
+                    self.store.execute(query)
+                }
             }
-            store.execute(query)
+            
+            // Timeout after 15 seconds
+            group.addTask {
+                try await Task.sleep(for: .seconds(15))
+                throw HealthKitError.timeout
+            }
+            
+            guard let result = try await group.next() else {
+                throw HealthKitError.timeout
+            }
+            group.cancelAll()
+            return result
         }
     }
 

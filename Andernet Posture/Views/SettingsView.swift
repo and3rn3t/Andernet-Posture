@@ -141,6 +141,15 @@ struct SettingsView: View {
                         .font(.caption)
                     }
 
+                    // Show retry button when in failed state
+                    if case .failed = syncService.status {
+                        Button {
+                            syncService.resetSyncState()
+                        } label: {
+                            Label("Retry Sync", systemImage: "arrow.clockwise")
+                        }
+                    }
+
                     if !iCloudAvailable {
                         Label {
                             Text("Sign in to iCloud in Settings to enable sync.")
