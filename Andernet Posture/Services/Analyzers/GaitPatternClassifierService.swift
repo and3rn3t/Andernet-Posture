@@ -30,7 +30,7 @@ struct GaitPatternResult: Sendable {
 
 // MARK: - Protocol
 
-protocol GaitPatternClassifier: AnyObject {
+protocol GaitPatternClassifying: AnyObject {
     // swiftlint:disable:next orphaned_doc_comment
     /// Classify gait pattern from session-level data.
     // swiftlint:disable:next function_parameter_count
@@ -54,7 +54,7 @@ protocol GaitPatternClassifier: AnyObject {
 
 // MARK: - Default Implementation
 
-final class DefaultGaitPatternClassifier: GaitPatternClassifier {
+final class DefaultGaitPatternClassifier: GaitPatternClassifying {
 
     // swiftlint:disable:next cyclomatic_complexity function_body_length function_parameter_count
     func classify(

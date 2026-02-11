@@ -3,7 +3,7 @@
 //  Andernet Posture
 //
 //  CoreML-backed crossed syndrome detector. Conforms to the existing
-//  CrossedSyndromeDetector protocol. Falls back to
+//  CrossedSyndromeDetecting protocol. Falls back to
 //  DefaultCrossedSyndromeDetector when the model isn't available.
 //
 //  The ML model can capture interaction effects between upper and
@@ -23,7 +23,7 @@ import os.log
 
 private let logger = AppLogger.ml
 
-final class CoreMLCrossedSyndromeDetector: CrossedSyndromeDetector {
+final class CoreMLCrossedSyndromeDetector: CrossedSyndromeDetecting {
 
     private let modelService: MLModelService
     private let fallback = DefaultCrossedSyndromeDetector()
@@ -32,7 +32,7 @@ final class CoreMLCrossedSyndromeDetector: CrossedSyndromeDetector {
         self.modelService = modelService
     }
 
-    // MARK: - CrossedSyndromeDetector Protocol
+    // MARK: - CrossedSyndromeDetecting Protocol
 
     func detect(
         craniovertebralAngleDeg: Double,

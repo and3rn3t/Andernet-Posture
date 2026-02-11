@@ -216,7 +216,7 @@ final class MockFallRiskAnalyzer: FallRiskAnalyzer {
 
 // MARK: - MockGaitPatternClassifier
 
-final class MockGaitPatternClassifier: GaitPatternClassifier {
+final class MockGaitPatternClassifier: GaitPatternClassifying {
     var stubbedResult = GaitPatternResult(
         primaryPattern: .normal, confidence: 0.9,
         patternScores: [.normal: 0.9], flags: []
@@ -235,7 +235,7 @@ final class MockGaitPatternClassifier: GaitPatternClassifier {
 
 // MARK: - MockCrossedSyndromeDetector
 
-final class MockCrossedSyndromeDetector: CrossedSyndromeDetector {
+final class MockCrossedSyndromeDetector: CrossedSyndromeDetecting {
     var stubbedResult = CrossedSyndromeResult(
         upperCrossedScore: 0.2, lowerCrossedScore: 0.1,
         detectedSyndromes: [], upperFactors: [], lowerFactors: []

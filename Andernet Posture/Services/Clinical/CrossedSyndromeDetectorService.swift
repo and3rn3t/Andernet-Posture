@@ -31,7 +31,7 @@ struct CrossedSyndromeResult: Sendable {
 
 // MARK: - Protocol
 
-protocol CrossedSyndromeDetector: AnyObject {
+protocol CrossedSyndromeDetecting: AnyObject {
     /// Detect crossed syndromes from averaged posture metrics.
     func detect(
         craniovertebralAngleDeg: Double,
@@ -46,7 +46,7 @@ protocol CrossedSyndromeDetector: AnyObject {
 
 // MARK: - Default Implementation
 
-final class DefaultCrossedSyndromeDetector: CrossedSyndromeDetector {
+final class DefaultCrossedSyndromeDetector: CrossedSyndromeDetecting {
 
     func detect(
         craniovertebralAngleDeg: Double,

@@ -19,7 +19,7 @@ final class GaitPipeline {
     private let gaitAnalyzer: any GaitAnalyzer
     private let romAnalyzer: any ROMAnalyzer
     private let fallRiskAnalyzer: any FallRiskAnalyzer
-    private let gaitPatternClassifier: any GaitPatternClassifier
+    private let gaitPatternClassifier: any GaitPatternClassifying
     private let smoothnessAnalyzer: any SmoothnessAnalyzer
 
     // MARK: - State
@@ -32,7 +32,7 @@ final class GaitPipeline {
         gaitAnalyzer: any GaitAnalyzer = DefaultGaitAnalyzer(),
         romAnalyzer: any ROMAnalyzer = DefaultROMAnalyzer(),
         fallRiskAnalyzer: any FallRiskAnalyzer = CoreMLFallRiskAnalyzer(modelService: .shared),
-        gaitPatternClassifier: any GaitPatternClassifier = CoreMLGaitPatternClassifier(modelService: .shared),
+        gaitPatternClassifier: any GaitPatternClassifying = CoreMLGaitPatternClassifier(modelService: .shared),
         smoothnessAnalyzer: any SmoothnessAnalyzer = DefaultSmoothnessAnalyzer()
     ) {
         self.gaitAnalyzer = gaitAnalyzer

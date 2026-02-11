@@ -3,7 +3,7 @@
 //  Andernet Posture
 //
 //  CoreML-backed gait pattern classifier. Conforms to the existing
-//  GaitPatternClassifier protocol so it drops into CaptureViewModel
+//  GaitPatternClassifying protocol so it drops into CaptureViewModel
 //  via dependency injection with zero call-site changes.
 //
 //  When the .mlmodelc bundle is present the model runs inference;
@@ -16,7 +16,7 @@ import os.log
 
 private let logger = AppLogger.ml
 
-final class CoreMLGaitPatternClassifier: GaitPatternClassifier {
+final class CoreMLGaitPatternClassifier: GaitPatternClassifying {
 
     private let modelService: MLModelService
     private let fallback = DefaultGaitPatternClassifier()
@@ -25,7 +25,7 @@ final class CoreMLGaitPatternClassifier: GaitPatternClassifier {
         self.modelService = modelService
     }
 
-    // MARK: - GaitPatternClassifier Protocol
+    // MARK: - GaitPatternClassifying Protocol
 
     // swiftlint:disable:next function_parameter_count
     func classify(

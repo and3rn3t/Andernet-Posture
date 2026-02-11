@@ -19,7 +19,7 @@ final class PosturePipeline {
 
     private let postureAnalyzer: any PostureAnalyzer
     private let ergonomicScorer: any ErgonomicScorer
-    private let crossedSyndromeDetector: any CrossedSyndromeDetector
+    private let crossedSyndromeDetector: any CrossedSyndromeDetecting
     private let painRiskEngine: any PainRiskEngine
 
     // MARK: - State
@@ -34,7 +34,7 @@ final class PosturePipeline {
     init(
         postureAnalyzer: any PostureAnalyzer = CoreMLPostureAnalyzer(modelService: .shared),
         ergonomicScorer: any ErgonomicScorer = DefaultErgonomicScorer(),
-        crossedSyndromeDetector: any CrossedSyndromeDetector = DefaultCrossedSyndromeDetector(),
+        crossedSyndromeDetector: any CrossedSyndromeDetecting = DefaultCrossedSyndromeDetector(),
         painRiskEngine: any PainRiskEngine = DefaultPainRiskEngine()
     ) {
         self.postureAnalyzer = postureAnalyzer
