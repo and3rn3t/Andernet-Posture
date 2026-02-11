@@ -12,7 +12,7 @@
 import SwiftUI
 import AVFoundation
 import UIKit
-import os.log
+import os
 
 // MARK: - Accessible Capture Overlay Modifier
 

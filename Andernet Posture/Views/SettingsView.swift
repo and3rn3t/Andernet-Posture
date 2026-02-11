@@ -7,7 +7,7 @@
 
 import SwiftUI
 import SwiftData
-import os.log
+import os
 
 struct SettingsView: View {
     @AppStorage("hapticFeedback") private var hapticFeedback = true

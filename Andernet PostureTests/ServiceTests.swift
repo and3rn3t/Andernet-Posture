@@ -143,7 +143,7 @@ struct ExportServiceTests {
                 sagittalTrunkLeanDeg: 3.5
             ),
         ]
-        let framesData = GaitSession.encode(frames: frames)
+        let framesData = GaitSession.encode(frames)
         let session = GaitSession(
             date: .now, duration: 0.066, framesData: framesData
         )

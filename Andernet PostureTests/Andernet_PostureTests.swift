@@ -145,7 +145,7 @@ struct GaitSessionModelTests {
             )
         ]
 
-        let data = GaitSession.encode(frames: frames)
+        let data = GaitSession.encode(frames)
         #expect(data != nil, "Encoding should succeed")
 
         let session = GaitSession(framesData: data)
@@ -161,7 +161,7 @@ struct GaitSessionModelTests {
             StepEvent(timestamp: 1.5, foot: .right, positionX: 0.8, positionZ: 0.6, strideLengthM: 0.70)
         ]
 
-        let data = GaitSession.encode(stepEvents: steps)
+        let data = GaitSession.encode(steps)
         #expect(data != nil)
 
         let session = GaitSession(stepEventsData: data)
@@ -278,7 +278,7 @@ struct SessionDetailViewModelTests {
                 avgStrideLengthM: 0.7
             )
         }
-        let framesData = GaitSession.encode(frames: frames)
+        let framesData = GaitSession.encode(frames)
 
         let session = GaitSession(
             date: .now,
@@ -299,7 +299,7 @@ struct SessionDetailViewModelTests {
             StepEvent(timestamp: 1.5, foot: .left, positionX: 0.6, positionZ: 1.0, strideLengthM: 0.68),
             StepEvent(timestamp: 2.0, foot: .right, positionX: 0.9, positionZ: 1.5, strideLengthM: 0.74),
         ]
-        let stepData = GaitSession.encode(stepEvents: steps)
+        let stepData = GaitSession.encode(steps)
 
         // Need at least one frame to trigger decode
         let frames = [
@@ -309,7 +309,7 @@ struct SessionDetailViewModelTests {
                 cadenceSPM: 110, avgStrideLengthM: 0.7
             )
         ]
-        let framesData = GaitSession.encode(frames: frames)
+        let framesData = GaitSession.encode(frames)
 
         let session = GaitSession(
             date: .now,

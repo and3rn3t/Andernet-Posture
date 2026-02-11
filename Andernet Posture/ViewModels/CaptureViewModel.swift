@@ -201,9 +201,9 @@ final class CaptureViewModel {
             peakTrunkLeanDeg: trunkLeans.max(),
             averageLateralLeanDeg: lateralLeans.isEmpty ? nil : lateralLeans.reduce(0, +) / Double(lateralLeans.count),
             totalSteps: steps.count,
-            framesData: GaitSession.encode(frames: frames),
-            stepEventsData: GaitSession.encode(stepEvents: steps),
-            motionFramesData: GaitSession.encode(motionFrames: motionFrames)
+            framesData: GaitSession.encode(frames),
+            stepEventsData: GaitSession.encode(steps),
+            motionFramesData: GaitSession.encode(motionFrames)
         )
 
         // Clinical posture averages (from PosturePipeline)

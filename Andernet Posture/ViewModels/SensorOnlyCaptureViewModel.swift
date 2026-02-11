@@ -153,7 +153,7 @@ final class SensorOnlyCaptureViewModel {
             duration: duration,
             averageCadenceSPM: cadenceSPM > 0 ? cadenceSPM : nil,
             totalSteps: stepCount,
-            motionFramesData: GaitSession.encode(motionFrames: motionFrames)
+            motionFramesData: GaitSession.encode(motionFrames)
         )
 
         // Distance

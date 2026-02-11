@@ -7,7 +7,6 @@
 //
 
 import SwiftUI
-import os.log
 
 // MARK: - Error Alert Modifier
 

@@ -1,6 +1,6 @@
 import Foundation
 import SwiftData
-import os.log
+import os
 
 @Model
 final class GaitSession {
@@ -189,32 +189,12 @@ final class GaitSession {
         }
     }
 
-    /// Encode body frames to JSON data.
-    static func encode(frames: [BodyFrame]) -> Data? {
+    /// Encode any Encodable array to JSON data, logging failures.
+    static func encode<T: Encodable>(_ items: [T]) -> Data? {
         do {
-            return try JSONEncoder().encode(frames)
+            return try JSONEncoder().encode(items)
         } catch {
-            AppLogger.persistence.error("Failed to encode \(frames.count) BodyFrames: \(error.localizedDescription)")
-            return nil
-        }
-    }
-
-    /// Encode step events to JSON data.
-    static func encode(stepEvents: [StepEvent]) -> Data? {
-        do {
-            return try JSONEncoder().encode(stepEvents)
-        } catch {
-            AppLogger.persistence.error("Failed to encode \(stepEvents.count) StepEvents: \(error.localizedDescription)")
-            return nil
-        }
-    }
-
-    /// Encode motion frames to JSON data.
-    static func encode(motionFrames: [MotionFrame]) -> Data? {
-        do {
-            return try JSONEncoder().encode(motionFrames)
-        } catch {
-            AppLogger.persistence.error("Failed to encode \(motionFrames.count) MotionFrames: \(error.localizedDescription)")
+            AppLogger.persistence.error("Failed to encode \(items.count) \(T.self) items: \(error.localizedDescription)")
             return nil
         }
     }

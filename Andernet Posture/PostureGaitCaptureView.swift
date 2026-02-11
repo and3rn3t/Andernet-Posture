@@ -235,12 +235,7 @@ struct PostureGaitCaptureView: View {
                 .controlSize(.large)
 
                 // Stop
-                Button {
-                    viewModel.stopCapture()
-                    if viewModel.saveSession(context: modelContext) != nil {
-                        showSavedAlert = true
-                    }
-                } label: {
+                Button(action: stopAndSave) {
                     Label("Stop & Save", systemImage: "stop.fill")
                         .font(.headline)
                         .frame(maxWidth: .infinity)
@@ -263,12 +258,7 @@ struct PostureGaitCaptureView: View {
                 .tint(.green)
 
                 // Stop
-                Button {
-                    viewModel.stopCapture()
-                    if viewModel.saveSession(context: modelContext) != nil {
-                        showSavedAlert = true
-                    }
-                } label: {
+                Button(action: stopAndSave) {
                     Label("Stop & Save", systemImage: "stop.fill")
                         .font(.headline)
                 }
@@ -291,6 +281,15 @@ struct PostureGaitCaptureView: View {
         .padding(.vertical, AppSpacing.md)
         .padding(.horizontal, AppSpacing.xl)
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: AppSpacing.xl))
+    }
+
+    // MARK: - Actions
+
+    private func stopAndSave() {
+        viewModel.stopCapture()
+        if viewModel.saveSession(context: modelContext) != nil {
+            showSavedAlert = true
+        }
     }
 
     // MARK: - Coaching Tip

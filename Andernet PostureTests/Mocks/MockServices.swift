@@ -10,7 +10,6 @@
 import Foundation
 import simd
 import HealthKit
-import RealityKit
 import CoreML
 @testable import Andernet_Posture
 
@@ -434,29 +433,6 @@ final class MockSixMWTProtocol: SixMWTProtocol {
             distanceByMinuteM: [67, 68, 70, 66, 65, 64],
             fatigueIndexPercent: 4.5, floorsAscended: nil, floorsDescended: nil
         )
-    }
-}
-
-// MARK: - MockBodyTrackingService
-
-final class MockBodyTrackingService: BodyTrackingService {
-    static var isSupported: Bool = true
-    var onBodyUpdate: (([JointName: SIMD3<Float>], TimeInterval) -> Void)?
-    var onError: ((Error) -> Void)?
-    var startCallCount = 0
-    var stopCallCount = 0
-
-    func start(in arView: ARView) { startCallCount += 1 }
-    func stop(in arView: ARView) { stopCallCount += 1 }
-
-    /// Simulate a body update from tests.
-    func simulateBodyUpdate(joints: [JointName: SIMD3<Float>], timestamp: TimeInterval = 0) {
-        onBodyUpdate?(joints, timestamp)
-    }
-
-    /// Simulate an error from tests.
-    func simulateError(_ error: Error) {
-        onError?(error)
     }
 }
 

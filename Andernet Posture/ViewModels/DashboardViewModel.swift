@@ -83,12 +83,7 @@ final class DashboardViewModel {
     }
 
     var formattedTotalTime: String {
-        // DateComponentsFormatter respects the user's locale automatically
-        // (e.g., "30 min" in English, "30 min" in Spanish).
-        let formatter = DateComponentsFormatter()
-        formatter.allowedUnits = totalWalkingTime >= 3600 ? [.hour, .minute] : [.minute]
-        formatter.unitsStyle = .abbreviated
-        return formatter.string(from: totalWalkingTime) ?? "0 min"
+        totalWalkingTime.longForm
     }
 
     // MARK: - Refresh

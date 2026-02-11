@@ -7,7 +7,7 @@
 
 import SwiftUI
 import SwiftData
-import os.log
+import os
 
 struct SessionListView: View {
     @Query(sort: \GaitSession.date, order: .reverse) private var sessions: [GaitSession]
