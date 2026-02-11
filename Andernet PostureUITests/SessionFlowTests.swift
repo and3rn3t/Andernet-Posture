@@ -88,7 +88,7 @@ final class SessionFlowTests: BaseUITest {
         capturePage.handleCameraPermissions()
         
         // Wait for capture interface to load
-        sleep(1)
+        _ = app.buttons.firstMatch.waitForExistence(timeout: 3)
         
         // Check for start button (or stop if already recording)
         let hasStartOrStop = capturePage.startButton.exists || capturePage.stopButton.exists
@@ -136,7 +136,6 @@ final class SessionFlowTests: BaseUITest {
         if dashboardPage.scrollView.exists {
             // Try scrolling
             dashboardPage.scrollView.swipeUp()
-            sleep(1)
             dashboardPage.scrollView.swipeDown()
             
             XCTAssertTrue(dashboardPage.exists(), "Dashboard should remain functional after scrolling")

@@ -459,57 +459,74 @@ Closes #123"
 
 ### Test Structure
 
+We use the **Swift Testing** framework (`import Testing`, `@Test`, `#expect`) for unit tests:
+
 ```swift
-final class PostureAnalyzerTests: XCTestCase {
-    var sut: DefaultPostureAnalyzer!
-    
-    override func setUp() {
-        super.setUp()
-        sut = DefaultPostureAnalyzer()
-    }
-    
-    override func tearDown() {
-        sut = nil
-        super.tearDown()
-    }
-    
-    func testCVA_WhenForwardHead_ReturnsSevere() {
-        // Arrange
-        let frame = BodyFrame.mock(/* forward head position */)
-        
+@Suite("PostureAnalyzer")
+struct PostureAnalyzerTests {
+    let sut = DefaultPostureAnalyzer()
+
+    @Test func cvaWhenForwardHeadReturnsSevere() {
+        // Arrange — use shared fixtures
+        let joints = JointFixtures.forwardLean()
+
         // Act
-        let metrics = sut.analyze(frame: frame)
-        
+        let metrics = sut.analyze(joints: joints)
+
         // Assert
-        XCTAssertLessThan(metrics.craniovertebralAngle, 40)
-        XCTAssertEqual(metrics.severities["CVA"], .severe)
+        #expect(metrics.craniovertebralAngle < 40)
+        #expect(metrics.severities["CVA"] == .severe)
+    }
+
+    @Test @MainActor func viewModelStartsInIdleState() {
+        let vm = CaptureViewModel(/* inject mocks */)
+        #expect(vm.state == .idle)
     }
 }
 ```
+
+> **Note:** UI tests still use XCTest (`XCTestCase`, `XCTAssert*`) because XCUITest requires it.
 
 ### Test Naming
 
 ```swift
-// Pattern: test_[UnitOfWork]_[StateUnderTest]_[ExpectedBehavior]
+// Use descriptive method names — no underscores required with Swift Testing
+@Test func analyzeWithValidFrameReturnsMetrics()
+@Test func analyzeWithMissingJointsReturnsZeroValues()
+@Test func startRecordingWhenAlreadyRecordingThrowsError()
+```
 
-func testAnalyze_WhenValidFrame_ReturnsMetrics()
-func testAnalyze_WhenMissingJoints_ReturnsZeroValues()
-func testStartRecording_WhenAlreadyRecording_ThrowsError()
+### Shared Fixtures
+
+Use centralized factories from `Andernet PostureTests/Fixtures/`:
+
+```swift
+// Joint positions
+let joints = JointFixtures.upright()      // 22-joint standing
+let stub = JointFixtures.stub()           // 18-joint minimal
+let lean = JointFixtures.forwardLean()    // Head shifted forward
+
+// Sessions
+let session = SessionFixtures.standard()   // Common metrics
+let empty = SessionFixtures.empty()        // Minimal session
+let series = SessionFixtures.series(count: 10)
+
+// Frames
+let frame = FrameFixtures.walking()        // Mid-stride frame
+let sequence = FrameFixtures.walkSequence(count: 30)
 ```
 
 ### Mock Data
 
-Create test helpers:
+Use mock services from `Andernet PostureTests/Mocks/MockServices.swift`:
 
 ```swift
-extension BodyFrame {
-    static func mock(
-        headPosition: SIMD3<Float> = .zero,
-        c7Position: SIMD3<Float> = .zero
-    ) -> BodyFrame {
-        // Build mock frame
-    }
-}
+let mockGait = MockGaitAnalyzer()
+mockGait.stubbedGaitMetrics = GaitMetrics(cadence: 110, ...)
+
+let mockRecorder = MockSessionRecorder()
+// Check call counts after test actions:
+#expect(mockRecorder.startRecordingCallCount == 1)
 ```
 
 ---

@@ -80,9 +80,9 @@ struct CaptureViewModelTests {
             .neck1: SIMD3(0, 1.5, 0),
             .spine7: SIMD3(0, 1.4, 0),
             .spine5: SIMD3(0, 1.2, 0),
-            .hipsJoint: SIMD3(0, 1.0, 0),
-            .leftShoulder1: SIMD3(-0.2, 1.4, 0),
-            .rightShoulder1: SIMD3(0.2, 1.4, 0),
+            .hips: SIMD3(0, 1.0, 0),
+            .leftShoulder: SIMD3(-0.2, 1.4, 0),
+            .rightShoulder: SIMD3(0.2, 1.4, 0),
             .leftUpLeg: SIMD3(-0.1, 0.9, 0),
             .rightUpLeg: SIMD3(0.1, 0.9, 0),
             .leftLeg: SIMD3(-0.1, 0.5, 0),
@@ -91,8 +91,8 @@ struct CaptureViewModelTests {
             .rightFoot: SIMD3(0.1, 0.05, 0),
             .leftHand: SIMD3(-0.3, 0.8, 0),
             .rightHand: SIMD3(0.3, 0.8, 0),
-            .leftForeArm: SIMD3(-0.25, 1.0, 0),
-            .rightForeArm: SIMD3(0.25, 1.0, 0),
+            .leftForearm: SIMD3(-0.25, 1.0, 0),
+            .rightForearm: SIMD3(0.25, 1.0, 0),
         ]
     }
 

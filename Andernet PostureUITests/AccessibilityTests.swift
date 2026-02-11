@@ -69,7 +69,7 @@ final class AccessibilityTests: BaseUITest {
         
         // Verify elements have labels
         for element in accessibleElements.prefix(10) {
-            if element.label.isEmpty && element.value?.isEmpty ?? true {
+            if element.label.isEmpty && ((element.value as? String)?.isEmpty ?? true) {
                 // Some elements may not need labels (decorative), but most should
                 continue
             }

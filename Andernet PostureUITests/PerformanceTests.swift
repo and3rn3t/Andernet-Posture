@@ -143,17 +143,15 @@ final class PerformanceTests: BaseUITest {
     
     func testViewTransitionSmoothness() throws {
         // Test that view transitions complete in reasonable time
-        let transitionTimeout: TimeInterval = 0.5
-        
         measure(metrics: [XCTClockMetric()]) {
             tabBar.navigateToDashboard()
-            sleep(UInt32(transitionTimeout))
+            _ = DashboardPage(app: app).scrollView.waitForExistence(timeout: 2)
             
             tabBar.navigateToSessions()
-            sleep(UInt32(transitionTimeout))
+            _ = SessionsListPage(app: app).sessionsList.waitForExistence(timeout: 2)
             
             tabBar.navigateToCapture()
-            sleep(UInt32(transitionTimeout))
+            _ = CapturePage(app: app).startButton.waitForExistence(timeout: 2)
         }
     }
     
@@ -182,8 +180,6 @@ final class PerformanceTests: BaseUITest {
         // Measure launch from terminated state (cold start)
         measure(metrics: [XCTApplicationLaunchMetric()]) {
             app.terminate()
-            // Wait a moment to ensure full termination
-            sleep(1)
             app.launch()
             _ = tabBar.tabBar.waitForExistence(timeout: 10)
         }
@@ -196,7 +192,6 @@ final class PerformanceTests: BaseUITest {
         measure(metrics: [XCTClockMetric()]) {
             // Background the app
             XCUIDevice.shared.press(.home)
-            sleep(1)
             
             // Bring back to foreground
             app.activate()

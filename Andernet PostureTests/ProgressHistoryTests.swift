@@ -56,6 +56,7 @@ struct ProgressMetricTests {
 
 // MARK: - ProgressHistoryViewModel Tests
 
+@MainActor
 struct ProgressHistoryViewModelTests {
 
     // Helper to create a session at a given date with a posture score

@@ -420,6 +420,7 @@ struct GaitAnalyzerTrimmingTests {
 
 // MARK: - ClinicalTestViewModel Timer Tests
 
+@MainActor
 struct ClinicalTestViewModelTimerTests {
 
     @Test func cancelTestClearsState() async throws {

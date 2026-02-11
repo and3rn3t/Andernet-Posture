@@ -10,6 +10,8 @@
 import Foundation
 import simd
 import HealthKit
+import RealityKit
+import CoreML
 @testable import Andernet_Posture
 
 // MARK: - MockGaitAnalyzer
@@ -433,4 +435,116 @@ final class MockSixMWTProtocol: SixMWTProtocol {
             fatigueIndexPercent: 4.5, floorsAscended: nil, floorsDescended: nil
         )
     }
+}
+
+// MARK: - MockBodyTrackingService
+
+final class MockBodyTrackingService: BodyTrackingService {
+    static var isSupported: Bool = true
+    var onBodyUpdate: (([JointName: SIMD3<Float>], TimeInterval) -> Void)?
+    var onError: ((Error) -> Void)?
+    var startCallCount = 0
+    var stopCallCount = 0
+
+    func start(in arView: ARView) { startCallCount += 1 }
+    func stop(in arView: ARView) { stopCallCount += 1 }
+
+    /// Simulate a body update from tests.
+    func simulateBodyUpdate(joints: [JointName: SIMD3<Float>], timestamp: TimeInterval = 0) {
+        onBodyUpdate?(joints, timestamp)
+    }
+
+    /// Simulate an error from tests.
+    func simulateError(_ error: Error) {
+        onError?(error)
+    }
+}
+
+// MARK: - MockCloudSyncService
+
+@MainActor
+final class MockCloudSyncService: CloudSyncServiceProtocol {
+    var status: SyncStatus = .idle
+    var lastSyncDate: Date?
+    var resetCallCount = 0
+    var checkAccountCallCount = 0
+    var stubbedAccountAvailable = true
+
+    func resetSyncState() { resetCallCount += 1 }
+    func checkAccountStatus() async -> Bool {
+        checkAccountCallCount += 1
+        return stubbedAccountAvailable
+    }
+}
+
+// MARK: - MockKeyValueStoreSync
+
+@MainActor
+final class MockKeyValueStoreSync: KeyValueStoreSyncProtocol {
+    var pushCallCount = 0
+    var pushAllCallCount = 0
+    var pushedKeys: [SyncedPreferenceKey] = []
+
+    func push(_ key: SyncedPreferenceKey) {
+        pushCallCount += 1
+        pushedKeys.append(key)
+    }
+
+    func pushAll() { pushAllCallCount += 1 }
+}
+
+// MARK: - MockNotificationService
+
+final class MockNotificationService: NotificationService {
+    var requestPermissionCallCount = 0
+    var scheduleReminderCallCount = 0
+    var cancelAllCallCount = 0
+    var sendDeclineAlertCallCount = 0
+    var stubbedPermission = true
+    var scheduledHour: Int?
+    var scheduledMinute: Int?
+    var lastAlertMetric: String?
+    var lastAlertMessage: String?
+
+    func requestPermission() async -> Bool {
+        requestPermissionCallCount += 1
+        return stubbedPermission
+    }
+
+    func scheduleSessionReminder(hour: Int, minute: Int) {
+        scheduleReminderCallCount += 1
+        scheduledHour = hour
+        scheduledMinute = minute
+    }
+
+    func cancelAllReminders() { cancelAllCallCount += 1 }
+
+    func sendDeclineAlert(metric: String, message: String) {
+        sendDeclineAlertCallCount += 1
+        lastAlertMetric = metric
+        lastAlertMessage = message
+    }
+}
+
+// MARK: - MockMLModelService
+
+@MainActor
+final class MockMLModelService: MLModelServiceProtocol {
+    var useMLModels: Bool = false
+    var modelStatuses: [MLModelStatus] = []
+    var availableModelCount: Int = 0
+    var loadModelCallCount = 0
+    var warmUpCallCount = 0
+    var stubbedModelAvailable = false
+
+    func loadModel(_ identifier: MLModelIdentifier) -> MLModel? {
+        loadModelCallCount += 1
+        return nil
+    }
+
+    func isModelAvailable(_ identifier: MLModelIdentifier) -> Bool {
+        stubbedModelAvailable
+    }
+
+    func warmUp() { warmUpCallCount += 1 }
 }
