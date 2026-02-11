@@ -74,37 +74,20 @@ final class CoreMLFatigueAnalyzer: FatigueAnalyzer {
             return ruleResult
         }
 
-        // Build an 8-feature vector from the rule-based trend summary.
-        // These are "meta-features" derived from the raw time-series:
-        //
-        //  0: postureTrendSlope     — negative = posture degrading
-        //  1: postureTrendR2        — how consistent the degradation is
-        //  2: postureVariabilitySD  — increased variability = fatigue
-        //  3: cadenceTrendSlope     — positive or negative change
-        //  4: speedTrendSlope       — negative = slowing
-        //  5: forwardLeanTrendSlope — positive = increasing lean
-        //  6: lateralSwayTrendSlope — positive = increasing sway
-        //  7: ruleBasedFatigueIndex — the rule-based composite (gives ML a baseline)
-        let features: [Double?] = [
-            ruleResult.postureTrendSlope,
-            ruleResult.postureTrendR2,
-            ruleResult.postureVariabilitySD,
-            ruleResult.cadenceTrendSlope,
-            ruleResult.speedTrendSlope,
-            ruleResult.forwardLeanTrendSlope,
-            ruleResult.lateralSwayTrendSlope,
-            ruleResult.fatigueIndex
-        ]
-
-        guard let featureArray = MLModelService.makeFeatureArray(features) else {
-            logger.warning("Failed to create feature array — using rule-based result")
-            return ruleResult
-        }
-
+        // Build named-column feature dictionary matching the trained model schema.
+        // These are "meta-features" derived from the raw time-series by the
+        // rule-based analyzer (slopes, variability, composite index).
         do {
-            let input = try MLDictionaryFeatureProvider(
-                dictionary: ["features": MLFeatureValue(multiArray: featureArray)]
-            )
+            let input = try MLDictionaryFeatureProvider(dictionary: [
+                "postureTrendSlope":      MLFeatureValue(double: ruleResult.postureTrendSlope),
+                "postureTrendR2":         MLFeatureValue(double: ruleResult.postureTrendR2),
+                "postureVariabilitySD":   MLFeatureValue(double: ruleResult.postureVariabilitySD),
+                "cadenceTrendSlope":      MLFeatureValue(double: ruleResult.cadenceTrendSlope),
+                "speedTrendSlope":        MLFeatureValue(double: ruleResult.speedTrendSlope),
+                "forwardLeanTrendSlope":  MLFeatureValue(double: ruleResult.forwardLeanTrendSlope),
+                "lateralSwayTrendSlope":  MLFeatureValue(double: ruleResult.lateralSwayTrendSlope),
+                "ruleBasedFatigueIndex":  MLFeatureValue(double: ruleResult.fatigueIndex)
+            ])
             let prediction = try model.prediction(from: input)
 
             // Extract ML fatigue index
@@ -115,14 +98,9 @@ final class CoreMLFatigueAnalyzer: FatigueAnalyzer {
                 mlFatigueIndex = ruleResult.fatigueIndex
             }
 
-            // Extract ML isFatigued classification
-            let mlIsFatigued: Bool
-            if let label = prediction.featureValue(for: "isFatigued")?.stringValue {
-                mlIsFatigued = label == "true" || label == "1" || label == "yes"
-            } else {
-                // Derive from ML fatigue index
-                mlIsFatigued = mlFatigueIndex > 25
-            }
+            // Extract ML isFatigued — derive from fatigueIndex threshold
+            // since the tabular regressor only outputs the continuous score.
+            let mlIsFatigued = mlFatigueIndex > 25
 
             logger.debug("Fatigue ML — index: \(mlFatigueIndex, format: .fixed(precision: 1)), fatigued: \(mlIsFatigued)")
 

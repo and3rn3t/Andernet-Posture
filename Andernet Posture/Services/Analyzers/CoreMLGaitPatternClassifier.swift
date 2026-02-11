@@ -66,49 +66,57 @@ final class CoreMLGaitPatternClassifier: GaitPatternClassifier {
             )
         }
 
-        // Build feature vector (14 features, sentinel = −1 for missing)
-        let features: [Double?] = [
-            stanceTimeLeftPercent,
-            stanceTimeRightPercent,
-            stepLengthLeftM,
-            stepLengthRightM,
-            cadenceSPM,
-            avgStepWidthCm,
-            stepWidthVariabilityCm,
-            pelvicObliquityDeg,
-            strideTimeCVPercent,
-            walkingSpeedMPS,
-            strideLengthM,
-            hipFlexionROMDeg,
-            armSwingAsymmetryPercent,
-            kneeFlexionROMDeg
-        ]
-
-        guard let inputArray = MLModelService.makeFeatureArray(features) else {
-            logger.warning("Failed to build feature array; falling back to rules.")
-            return fallbackClassify(features: features)
-        }
-
+        // Build named-column feature dictionary matching the trained model schema.
+        // Sentinel −1 is used for missing values (consistent with training data).
+        let sentinel = -1.0
         do {
-            let provider = try MLDictionaryFeatureProvider(
-                dictionary: ["features": MLFeatureValue(multiArray: inputArray)]
-            )
+            let provider = try MLDictionaryFeatureProvider(dictionary: [
+                "stanceTimeLeftPct":      MLFeatureValue(double: stanceTimeLeftPercent ?? sentinel),
+                "stanceTimeRightPct":     MLFeatureValue(double: stanceTimeRightPercent ?? sentinel),
+                "stepLengthLeftM":        MLFeatureValue(double: stepLengthLeftM ?? sentinel),
+                "stepLengthRightM":       MLFeatureValue(double: stepLengthRightM ?? sentinel),
+                "cadenceSPM":             MLFeatureValue(double: cadenceSPM ?? sentinel),
+                "stepWidthCm":            MLFeatureValue(double: avgStepWidthCm ?? sentinel),
+                "stepWidthVariabilityCm": MLFeatureValue(double: stepWidthVariabilityCm ?? sentinel),
+                "pelvicObliquityDeg":     MLFeatureValue(double: pelvicObliquityDeg ?? sentinel),
+                "strideTimeCVPercent":    MLFeatureValue(double: strideTimeCVPercent ?? sentinel),
+                "walkingSpeedMPS":        MLFeatureValue(double: walkingSpeedMPS ?? sentinel),
+                "strideLengthM":          MLFeatureValue(double: strideLengthM ?? sentinel),
+                "hipFlexionROMDeg":       MLFeatureValue(double: hipFlexionROMDeg ?? sentinel),
+                "armSwingAsymmetryPct":   MLFeatureValue(double: armSwingAsymmetryPercent ?? sentinel),
+                "kneeFlexionROMDeg":      MLFeatureValue(double: kneeFlexionROMDeg ?? sentinel)
+            ])
             let prediction = try model.prediction(from: provider)
             return parsePrediction(prediction)
         } catch {
             logger.error("CoreML prediction failed: \(error.localizedDescription)")
-            return fallbackClassify(features: features)
+            return fallback.classify(
+                stanceTimeLeftPercent: stanceTimeLeftPercent,
+                stanceTimeRightPercent: stanceTimeRightPercent,
+                stepLengthLeftM: stepLengthLeftM,
+                stepLengthRightM: stepLengthRightM,
+                cadenceSPM: cadenceSPM,
+                avgStepWidthCm: avgStepWidthCm,
+                stepWidthVariabilityCm: stepWidthVariabilityCm,
+                pelvicObliquityDeg: pelvicObliquityDeg,
+                strideTimeCVPercent: strideTimeCVPercent,
+                walkingSpeedMPS: walkingSpeedMPS,
+                strideLengthM: strideLengthM,
+                hipFlexionROMDeg: hipFlexionROMDeg,
+                armSwingAsymmetryPercent: armSwingAsymmetryPercent,
+                kneeFlexionROMDeg: kneeFlexionROMDeg
+            )
         }
     }
 
     // MARK: - Prediction Parsing
 
     /// Parse the model output into a GaitPatternResult.
-    /// Expected outputs: "label" (String) and "classProbability" (Dictionary).
+    /// Expected outputs: "label" (String) and "labelProbability" (Dictionary).
     private func parsePrediction(_ prediction: MLFeatureProvider) -> GaitPatternResult {
         // Try to get class probabilities dictionary
         var scores: [GaitPatternType: Double] = [:]
-        if let probDict = prediction.featureValue(for: "classProbability")?.dictionaryValue {
+        if let probDict = prediction.featureValue(for: "labelProbability")?.dictionaryValue {
             for (key, value) in probDict {
                 if let keyStr = key as? String,
                    let pattern = GaitPatternType(rawValue: keyStr),
@@ -137,24 +145,4 @@ final class CoreMLGaitPatternClassifier: GaitPatternClassifier {
         )
     }
 
-    // MARK: - Fallback
-
-    private func fallbackClassify(features: [Double?]) -> GaitPatternResult {
-        fallback.classify(
-            stanceTimeLeftPercent: features[0],
-            stanceTimeRightPercent: features[1],
-            stepLengthLeftM: features[2],
-            stepLengthRightM: features[3],
-            cadenceSPM: features[4],
-            avgStepWidthCm: features[5],
-            stepWidthVariabilityCm: features[6],
-            pelvicObliquityDeg: features[7],
-            strideTimeCVPercent: features[8],
-            walkingSpeedMPS: features[9],
-            strideLengthM: features[10],
-            hipFlexionROMDeg: features[11],
-            armSwingAsymmetryPercent: features[12],
-            kneeFlexionROMDeg: features[13]
-        )
-    }
 }

@@ -45,7 +45,7 @@ final class CoreMLCrossedSyndromeDetector: CrossedSyndromeDetector {
     ) -> CrossedSyndromeResult {
 
         guard modelService.useMLModels,
-              let model = modelService.loadModel(.crossedSyndromeDetector) else {
+              let upperModel = modelService.loadModel(.crossedSyndromeDetector) else {
             return fallback.detect(
                 craniovertebralAngleDeg: craniovertebralAngleDeg,
                 shoulderProtractionCm: shoulderProtractionCm,
@@ -57,39 +57,42 @@ final class CoreMLCrossedSyndromeDetector: CrossedSyndromeDetector {
             )
         }
 
-        // Build 7-feature vector (sentinel = −1 for missing optional values)
-        let features: [Double?] = [
-            craniovertebralAngleDeg,
-            shoulderProtractionCm,
-            thoracicKyphosisDeg,
-            cervicalLordosisDeg,      // optional
-            pelvicTiltDeg,
-            lumbarLordosisDeg,
-            hipFlexionRestDeg          // optional
-        ]
-
-        guard let featureArray = MLModelService.makeFeatureArray(features) else {
-            logger.warning("Failed to create feature array — falling back to rules")
-            return fallback.detect(
-                craniovertebralAngleDeg: craniovertebralAngleDeg,
-                shoulderProtractionCm: shoulderProtractionCm,
-                thoracicKyphosisDeg: thoracicKyphosisDeg,
-                cervicalLordosisDeg: cervicalLordosisDeg,
-                pelvicTiltDeg: pelvicTiltDeg,
-                lumbarLordosisDeg: lumbarLordosisDeg,
-                hipFlexionRestDeg: hipFlexionRestDeg
-            )
-        }
-
+        // Build named-column feature dictionary matching the trained model schema.
+        // Sentinel −1 is used for missing optional values (consistent with training data).
+        let sentinel = -1.0
         do {
-            let input = try MLDictionaryFeatureProvider(
-                dictionary: ["features": MLFeatureValue(multiArray: featureArray)]
-            )
-            let prediction = try model.prediction(from: input)
+            let provider = try MLDictionaryFeatureProvider(dictionary: [
+                "craniovertebralAngleDeg": MLFeatureValue(double: craniovertebralAngleDeg),
+                "shoulderProtractionCm":   MLFeatureValue(double: shoulderProtractionCm),
+                "thoracicKyphosisDeg":     MLFeatureValue(double: thoracicKyphosisDeg),
+                "cervicalLordosisDeg":     MLFeatureValue(double: cervicalLordosisDeg ?? sentinel),
+                "pelvicTiltDeg":           MLFeatureValue(double: pelvicTiltDeg),
+                "lumbarLordosisDeg":       MLFeatureValue(double: lumbarLordosisDeg),
+                "hipFlexionRestDeg":       MLFeatureValue(double: hipFlexionRestDeg ?? sentinel)
+            ])
 
-            // Extract predicted scores
-            let mlUpperScore = clampScore(prediction, key: "upperCrossedScore")
-            let mlLowerScore = clampScore(prediction, key: "lowerCrossedScore")
+            // Upper crossed score from the primary model
+            let upperPrediction = try upperModel.prediction(from: provider)
+            let mlUpperScore = clampScore(upperPrediction, key: "upperCrossedScore")
+
+            // Lower crossed score from the companion model (if available)
+            let mlLowerScore: Double
+            if let lowerModel = modelService.loadModel(.crossedSyndromeDetectorLower) {
+                let lowerPrediction = try lowerModel.prediction(from: provider)
+                mlLowerScore = clampScore(lowerPrediction, key: "lowerCrossedScore")
+            } else {
+                // Fallback: use rule-based lower score
+                let ruleResult = fallback.detect(
+                    craniovertebralAngleDeg: craniovertebralAngleDeg,
+                    shoulderProtractionCm: shoulderProtractionCm,
+                    thoracicKyphosisDeg: thoracicKyphosisDeg,
+                    cervicalLordosisDeg: cervicalLordosisDeg,
+                    pelvicTiltDeg: pelvicTiltDeg,
+                    lumbarLordosisDeg: lumbarLordosisDeg,
+                    hipFlexionRestDeg: hipFlexionRestDeg
+                )
+                mlLowerScore = ruleResult.lowerCrossedScore
+            }
 
             // Use rule-based detector for factor breakdown (interpretability)
             let ruleResult = fallback.detect(

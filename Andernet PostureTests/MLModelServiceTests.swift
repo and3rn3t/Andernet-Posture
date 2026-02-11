@@ -15,7 +15,7 @@ import CoreML
 struct MLModelIdentifierTests {
 
     @Test func allCasesPresent() {
-        #expect(MLModelIdentifier.allCases.count == 5)
+        #expect(MLModelIdentifier.allCases.count == 6)
     }
 
     @Test func featureCountsArePositive() {
@@ -46,6 +46,7 @@ struct MLModelIdentifierTests {
         #expect(MLModelIdentifier.postureScorer.featureCount == 9)
         #expect(MLModelIdentifier.fallRiskPredictor.featureCount == 8)
         #expect(MLModelIdentifier.crossedSyndromeDetector.featureCount == 7)
+        #expect(MLModelIdentifier.crossedSyndromeDetectorLower.featureCount == 7)
         #expect(MLModelIdentifier.fatiguePredictor.featureCount == 8)
     }
 }

@@ -25,6 +25,7 @@ enum MLModelIdentifier: String, CaseIterable, Sendable {
     case postureScorer          = "PostureScorer"
     case fallRiskPredictor      = "FallRiskPredictor"
     case crossedSyndromeDetector = "CrossedSyndromeDetector"
+    case crossedSyndromeDetectorLower = "CrossedSyndromeDetector_lower"
     case fatiguePredictor       = "FatiguePredictor"
 
     /// Human-readable display name.
@@ -33,7 +34,8 @@ enum MLModelIdentifier: String, CaseIterable, Sendable {
         case .gaitPatternClassifier: return String(localized: "Gait Pattern Classifier")
         case .postureScorer:         return String(localized: "Posture Scorer")
         case .fallRiskPredictor:     return String(localized: "Fall Risk Predictor")
-        case .crossedSyndromeDetector: return String(localized: "Crossed Syndrome Detector")
+        case .crossedSyndromeDetector: return String(localized: "Crossed Syndrome Detector (Upper)")
+        case .crossedSyndromeDetectorLower: return String(localized: "Crossed Syndrome Detector (Lower)")
         case .fatiguePredictor:      return String(localized: "Fatigue Predictor")
         }
     }
@@ -48,7 +50,9 @@ enum MLModelIdentifier: String, CaseIterable, Sendable {
         case .fallRiskPredictor:
             return String(localized: "Estimates fall risk from gait and balance data")
         case .crossedSyndromeDetector:
-            return String(localized: "Detects upper and lower crossed syndromes")
+            return String(localized: "Detects upper crossed syndrome")
+        case .crossedSyndromeDetectorLower:
+            return String(localized: "Detects lower crossed syndrome")
         case .fatiguePredictor:
             return String(localized: "Predicts fatigue onset from session trend features")
         }
@@ -61,6 +65,7 @@ enum MLModelIdentifier: String, CaseIterable, Sendable {
         case .postureScorer:         return 9
         case .fallRiskPredictor:     return 8
         case .crossedSyndromeDetector: return 7
+        case .crossedSyndromeDetectorLower: return 7
         case .fatiguePredictor:      return 8
         }
     }
@@ -102,6 +107,7 @@ final class MLModelService {
         .postureScorer: "1.0.0",
         .fallRiskPredictor: "1.0.0",
         .crossedSyndromeDetector: "1.0.0",
+        .crossedSyndromeDetectorLower: "1.0.0",
         .fatiguePredictor: "1.0.0"
     ]
 

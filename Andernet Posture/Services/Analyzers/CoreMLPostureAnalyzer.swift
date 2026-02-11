@@ -42,46 +42,44 @@ final class CoreMLPostureAnalyzer: PostureAnalyzer {
             return metrics
         }
 
-        // Build feature vector from the 9 sub-component scores
-        // These are the clinically meaningful intermediate features
-        let subScores: [Double?] = [
-            normalizeAngle(metrics.craniovertebralAngleDeg, ideal: 52, maxDev: 20),  // CVA
-            normalizeSVA(metrics.sagittalVerticalAxisCm),                             // SVA
-            normalizeAngle(metrics.sagittalTrunkLeanDeg, ideal: 0, maxDev: 15),      // trunk lean
-            normalizeAngle(metrics.frontalTrunkLeanDeg, ideal: 0, maxDev: 10),       // lateral lean
-            normalizeDistance(metrics.shoulderAsymmetryCm, maxDev: 5),               // shoulder
-            normalizeAngle(metrics.thoracicKyphosisDeg, ideal: 35, maxDev: 25),      // kyphosis
-            normalizeAngle(metrics.pelvicObliquityDeg, ideal: 0, maxDev: 8),         // pelvic
-            normalizeAngle(metrics.lumbarLordosisDeg, ideal: 45, maxDev: 25),        // lordosis
-            normalizeDistance(metrics.coronalSpineDeviationCm, maxDev: 4)             // coronal
-        ]
-
-        guard let inputArray = MLModelService.makeFeatureArray(subScores) else {
-            return metrics
-        }
+        // Build named-column feature dictionary matching the trained model schema.
+        // These are the clinically meaningful intermediate sub-scores (0–100).
+        let fCVA = normalizeAngle(metrics.craniovertebralAngleDeg, ideal: 52, maxDev: 20)
+        let fSVA = normalizeSVA(metrics.sagittalVerticalAxisCm)
+        let fTrunkLean = normalizeAngle(metrics.sagittalTrunkLeanDeg, ideal: 0, maxDev: 15)
+        let fLateralLean = normalizeAngle(metrics.frontalTrunkLeanDeg, ideal: 0, maxDev: 10)
+        let fShoulderAsym = normalizeDistance(metrics.shoulderAsymmetryCm, maxDev: 5)
+        let fKyphosis = normalizeAngle(metrics.thoracicKyphosisDeg, ideal: 35, maxDev: 25)
+        let fPelvicObliq = normalizeAngle(metrics.pelvicObliquityDeg, ideal: 0, maxDev: 8)
+        let fLordosis = normalizeAngle(metrics.lumbarLordosisDeg, ideal: 45, maxDev: 25)
+        let fCoronalDev = normalizeDistance(metrics.coronalSpineDeviationCm, maxDev: 4)
 
         do {
-            let provider = try MLDictionaryFeatureProvider(
-                dictionary: ["features": MLFeatureValue(multiArray: inputArray)]
-            )
+            let provider = try MLDictionaryFeatureProvider(dictionary: [
+                "f_cva":         MLFeatureValue(double: fCVA),
+                "f_sva":         MLFeatureValue(double: fSVA),
+                "f_trunkLean":   MLFeatureValue(double: fTrunkLean),
+                "f_lateralLean": MLFeatureValue(double: fLateralLean),
+                "f_shoulderAsym": MLFeatureValue(double: fShoulderAsym),
+                "f_kyphosis":    MLFeatureValue(double: fKyphosis),
+                "f_pelvicObliq": MLFeatureValue(double: fPelvicObliq),
+                "f_lordosis":    MLFeatureValue(double: fLordosis),
+                "f_coronalDev":  MLFeatureValue(double: fCoronalDev)
+            ])
             let prediction = try model.prediction(from: provider)
 
             // Extract ML-predicted composite score (0–100)
             let mlScore: Double
-            if let scoreValue = prediction.featureValue(for: "postureScore")?.doubleValue {
+            if let scoreValue = prediction.featureValue(for: "compositeScore")?.doubleValue {
                 mlScore = max(0, min(100, scoreValue))
             } else {
                 mlScore = metrics.postureScore
             }
 
-            // Extract ML-predicted Kendall type if available
-            let mlKendall: PosturalType
-            if let typeStr = prediction.featureValue(for: "posturalType")?.stringValue,
-               let parsed = PosturalType(rawValue: typeStr) {
-                mlKendall = parsed
-            } else {
-                mlKendall = metrics.posturalType
-            }
+            // Kendall postural type stays rule-based — the tabular regressor
+            // only predicts the composite score; classification is handled
+            // by the geometric analyzer's validated heuristics.
+            let mlKendall = metrics.posturalType
 
             // Rebuild metrics with ML-predicted score and type,
             // keeping all geometric measurements intact
