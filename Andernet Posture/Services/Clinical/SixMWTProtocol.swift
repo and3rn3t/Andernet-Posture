@@ -424,9 +424,9 @@ final class DefaultSixMWTProtocol: SixMWTProtocol {
         phase = .completed
         onPhaseChange?(.completed)
 
+        let restStopCount = restStops.count
         AppLogger.clinicalTests.info(
-            "6MWT completed: \(String(format: "%.1f", totalDistance))m in \(String(format: "%.0f", duration))s, " +
-            "\(totalSteps) steps, \(restStops.count) rest stops"
+            "6MWT completed: \(String(format: "%.1f", totalDistance))m in \(String(format: "%.0f", duration))s, \(totalSteps) steps, \(restStopCount) rest stops"
         )
 
         return result
@@ -584,10 +584,11 @@ final class DefaultSixMWTProtocol: SixMWTProtocol {
                 onPhaseChange?(phase)
                 onEncouragement?(message)
                 // Return to walking phase after brief display
-                DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
-                    guard self?.phase != .completed && self?.phase != .cancelled else { return }
-                    self?.phase = .walking
-                    self?.onPhaseChange?(.walking)
+                Task { [weak self] in
+                    try? await Task.sleep(for: .seconds(2.0))
+                    guard let self, self.phase != .completed && self.phase != .cancelled else { return }
+                    self.phase = .walking
+                    self.onPhaseChange?(.walking)
                 }
             }
         }

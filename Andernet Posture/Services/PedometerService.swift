@@ -115,7 +115,7 @@ final class CorePedometerService: PedometerService {
                 stepCount: data.numberOfSteps.intValue,
                 distanceM: data.distance?.doubleValue,
                 currentPaceSPM: data.currentPace?.doubleValue,
-                currentCadenceSPM: data.currentCadence?.doubleValue.map { $0 * 60.0 },  // steps/sec → steps/min
+                currentCadenceSPM: data.currentCadence.map { $0.doubleValue * 60.0 },  // steps/sec → steps/min
                 floorsAscended: data.floorsAscended?.intValue,
                 floorsDescended: data.floorsDescended?.intValue,
                 averageActivePaceSPM: data.averageActivePace?.doubleValue
@@ -149,7 +149,7 @@ final class CorePedometerService: PedometerService {
                     stepCount: data.numberOfSteps.intValue,
                     distanceM: data.distance?.doubleValue,
                     currentPaceSPM: data.currentPace?.doubleValue,
-                    currentCadenceSPM: data.currentCadence?.doubleValue.map { $0 * 60.0 },
+                    currentCadenceSPM: data.currentCadence.map { $0.doubleValue * 60.0 },
                     floorsAscended: data.floorsAscended?.intValue,
                     floorsDescended: data.floorsDescended?.intValue,
                     averageActivePaceSPM: data.averageActivePace?.doubleValue

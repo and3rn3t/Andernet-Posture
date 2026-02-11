@@ -40,6 +40,7 @@ enum ProgressTimeRange: String, CaseIterable, Identifiable {
 // MARK: - View Model
 
 @Observable
+@MainActor
 final class ProgressHistoryViewModel {
 
     // MARK: User Selections

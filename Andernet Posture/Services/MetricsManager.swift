@@ -69,31 +69,33 @@ final class MetricsManager: NSObject, MXMetricManagerSubscriber {
         // Memory
         if let mem = payload.memoryMetrics {
             let peakMB = mem.peakMemoryUsage.converted(to: .megabytes).value
-            let avgSuspendedMB = mem.averageSuspendedMemory?.converted(to: .megabytes).value ?? 0
+            let avgSuspendedMB = mem.averageSuspendedMemory.averageMeasurement.converted(to: .megabytes).value
             AppLogger.performance.info("Memory — peak: \(peakMB, format: .fixed(precision: 1))MB, avg suspended: \(avgSuspendedMB, format: .fixed(precision: 1))MB")
         }
 
         // Animation / scroll hitches
         if let anim = payload.animationMetrics {
-            let hitchRatio = anim.scrollHitchTimeRatio.averageMeasurement
+            let hitchRatio = anim.scrollHitchTimeRatio
             AppLogger.performance.info("Scroll hitch ratio: \(hitchRatio)")
         }
 
         // Launch
         if let launch = payload.applicationLaunchMetrics {
-            let resumeMs = launch.histogrammedApplicationResumeTime
-                .averageMeasurement.converted(to: .milliseconds).value
-            AppLogger.performance.info("Average resume time: \(resumeMs, format: .fixed(precision: 1))ms")
+            if let resumeMs = approximateAverage(from: launch.histogrammedApplicationResumeTime)?
+                .converted(to: .milliseconds).value {
+                AppLogger.performance.info("Average resume time: \(resumeMs, format: .fixed(precision: 1))ms")
+            }
         }
 
         // Responsiveness (main-thread hangs)
         if let resp = payload.applicationResponsivenessMetrics {
-            let hangMs = resp.histogrammedApplicationHangTime
-                .averageMeasurement.converted(to: .milliseconds).value
-            if hangMs > 250 {
-                AppLogger.performance.warning("Average hang time elevated: \(hangMs, format: .fixed(precision: 1))ms")
-            } else {
-                AppLogger.performance.info("Average hang time: \(hangMs, format: .fixed(precision: 1))ms")
+            if let hangMs = approximateAverage(from: resp.histogrammedApplicationHangTime)?
+                .converted(to: .milliseconds).value {
+                if hangMs > 250 {
+                    AppLogger.performance.warning("Average hang time elevated: \(hangMs, format: .fixed(precision: 1))ms")
+                } else {
+                    AppLogger.performance.info("Average hang time: \(hangMs, format: .fixed(precision: 1))ms")
+                }
             }
         }
 
@@ -105,6 +107,24 @@ final class MetricsManager: NSObject, MXMetricManagerSubscriber {
         }
     }
 
+    // MARK: - Histogram Helpers
+
+    /// Computes a weighted-midpoint average from an MXHistogram's buckets.
+    private func approximateAverage<U: Unit>(from histogram: MXHistogram<U>) -> Measurement<U>? {
+        var totalCount = 0
+        var weightedSum = 0.0
+        var bucketUnit: U?
+        let enumerator = histogram.bucketEnumerator
+        while let bucket = enumerator.nextObject() as? MXHistogramBucket<U> {
+            bucketUnit = bucket.bucketStart.unit
+            let midpoint = (bucket.bucketStart.value + bucket.bucketEnd.value) / 2.0
+            weightedSum += midpoint * Double(bucket.bucketCount)
+            totalCount += bucket.bucketCount
+        }
+        guard totalCount > 0, let unit = bucketUnit else { return nil }
+        return Measurement(value: weightedSum / Double(totalCount), unit: unit)
+    }
+
     // MARK: - Diagnostic Processing
 
     private func processDiagnosticPayload(_ payload: MXDiagnosticPayload) {
@@ -113,14 +133,12 @@ final class MetricsManager: NSObject, MXMetricManagerSubscriber {
         // Crashes
         if let crashes = payload.crashDiagnostics {
             for crash in crashes {
-                let signal = crash.signal?.rawValue ?? 0
-                let exception = crash.exceptionType?.rawValue ?? 0
+                let signal = crash.signal?.intValue ?? 0
+                let exception = crash.exceptionType?.intValue ?? 0
                 AppLogger.performance.error("Crash — signal: \(signal), exception type: \(exception)")
 
-                if let callStack = crash.callStackTree {
-                    let bytes = callStack.jsonRepresentation().count
-                    AppLogger.performance.error("Call stack: \(bytes) bytes")
-                }
+                let bytes = crash.callStackTree.jsonRepresentation().count
+                AppLogger.performance.error("Call stack: \(bytes) bytes")
             }
         }
 

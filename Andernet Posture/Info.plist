@@ -21,6 +21,17 @@
 	<string>This app saves posture and gait session summaries to Apple Health so you can track progress over time.</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>dev.andernet.posture</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>andernetposture</string>
+			</array>
+		</dict>
+	</array>
 	<key>UILaunchScreen</key>
 	<dict>
 		<key>BackgroundColor</key>

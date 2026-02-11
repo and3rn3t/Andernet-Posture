@@ -133,8 +133,9 @@ final class KeyValueStoreSync: ObservableObject {
         } else if attempt < 3 {
             let delay = pow(2.0, Double(attempt))  // 1s, 2s, 4s
             logger.warning("KVS sync failed (attempt \(attempt + 1)), retrying in \(String(format: "%.0f", delay))s")
-            
-            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+
+            Task { [weak self] in
+                try? await Task.sleep(for: .seconds(delay))
                 self?.syncWithRetry(attempt: attempt + 1)
             }
         } else {

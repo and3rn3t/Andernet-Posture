@@ -37,6 +37,7 @@ struct ClinicalMetricItem: Identifiable {
 
 /// Drives SessionDetailView — decodes and presents time-series data for one session.
 @Observable
+@MainActor
 final class SessionDetailViewModel {
 
     let session: GaitSession

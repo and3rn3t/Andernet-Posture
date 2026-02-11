@@ -18,6 +18,7 @@ struct Andernet_PostureApp: App {
     @State private var showSplash = true
     @State private var cloudSyncService = CloudSyncService()
     @State private var mlModelService = MLModelService.shared
+    @State private var deepLinkHandler = DeepLinkHandler()
     @Environment(\.scenePhase) private var scenePhase
 
     init() {
@@ -33,14 +34,22 @@ struct Andernet_PostureApp: App {
         )
 
         do {
-            sharedModelContainer = try ModelContainer(for: schema, configurations: [config])
-            logger.info("ModelContainer created successfully (persistent store)")
+            sharedModelContainer = try ModelContainer(
+                for: schema,
+                migrationPlan: GaitSessionMigrationPlan.self,
+                configurations: [config]
+            )
+            logger.info("ModelContainer created successfully (persistent store, migration plan active)")
         } catch {
             logger.error("Persistent ModelContainer failed: \(error.localizedDescription). Falling back to in-memory store.")
             // Fallback: in-memory store so the app doesn't crash
             do {
                 let fallbackConfig = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
-                sharedModelContainer = try ModelContainer(for: schema, configurations: [fallbackConfig])
+                sharedModelContainer = try ModelContainer(
+                    for: schema,
+                    migrationPlan: GaitSessionMigrationPlan.self,
+                    configurations: [fallbackConfig]
+                )
                 logger.warning("Using in-memory fallback — data will not persist between launches.")
             } catch {
                 // Last resort: this should never happen, but if it does, crash with context
@@ -82,16 +91,21 @@ struct Andernet_PostureApp: App {
                 mlModelService.warmUp()
 
                 // Dismiss splash after animation completes
-                DispatchQueue.main.asyncAfter(deadline: .now() + 2.8) {
+                Task { @MainActor in
+                    try? await Task.sleep(for: .seconds(2.8))
                     withAnimation(.easeOut(duration: 0.5)) {
                         showSplash = false
                     }
                 }
             }
+            .onOpenURL { url in
+                deepLinkHandler.handle(url: url)
+            }
         }
         .modelContainer(sharedModelContainer)
         .environment(cloudSyncService)
         .environment(mlModelService)
+        .environment(deepLinkHandler)
         .onChange(of: scenePhase) { oldPhase, newPhase in
             handleScenePhaseChange(from: oldPhase, to: newPhase)
         }

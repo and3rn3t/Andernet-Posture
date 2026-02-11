@@ -15,29 +15,16 @@ import os.log
 
 /// Drives the PostureGaitCaptureView — orchestrates services, holds live metrics.
 @Observable
+@MainActor
 final class CaptureViewModel {
 
-    // MARK: - Dependencies (protocol-based)
+    // MARK: - Dependencies (pipeline-based)
 
-    private let gaitAnalyzer: any GaitAnalyzer
-    private let postureAnalyzer: any PostureAnalyzer
-    private let motionService: any MotionService
+    private let posturePipeline: PosturePipeline
+    private let gaitPipeline: GaitPipeline
+    private let sensorPipeline: SensorPipeline
     private let recorder: any SessionRecorder
-    private let balanceAnalyzer: any BalanceAnalyzer
-    private let romAnalyzer: any ROMAnalyzer
-    private let ergonomicScorer: any ErgonomicScorer
-    private let fatigueAnalyzer: any FatigueAnalyzer
-    private let smoothnessAnalyzer: any SmoothnessAnalyzer
-    private let fallRiskAnalyzer: any FallRiskAnalyzer
-    private let gaitPatternClassifier: any GaitPatternClassifier
-    private let crossedSyndromeDetector: any CrossedSyndromeDetector
-    private let painRiskEngine: any PainRiskEngine
-    private let frailtyScreener: any FrailtyScreener
-    private let cardioEstimator: any CardioEstimator
     private let healthKitService: any HealthKitService
-    private let pedometerService: any PedometerService
-    private let imuStepDetector: any IMUStepDetector
-    private let trunkMotionAnalyzer: any TrunkMotionAnalyzer
 
     // MARK: - Published state
 
@@ -129,10 +116,6 @@ final class CaptureViewModel {
         pelvicTilt: Double, trunkRot: Double, armSwingL: Double, armSwingR: Double
     )?
 
-    // Session accumulators
-    private var postureMetricsHistory: [PostureMetrics] = []
-    private var stepWidthValues: [Double] = []
-
     // Distance accumulation from ARKit root displacement
     private var lastRootPosition: SIMD3<Float>?
     private var accumulatedARKitDistanceM: Double = 0
@@ -140,45 +123,17 @@ final class CaptureViewModel {
     // MARK: - Init
 
     init(
-        gaitAnalyzer: any GaitAnalyzer = DefaultGaitAnalyzer(),
-        postureAnalyzer: any PostureAnalyzer = CoreMLPostureAnalyzer(modelService: .shared),
-        motionService: any MotionService = CoreMotionService(),
+        posturePipeline: PosturePipeline = PosturePipeline(),
+        gaitPipeline: GaitPipeline = GaitPipeline(),
+        sensorPipeline: SensorPipeline = SensorPipeline(),
         recorder: any SessionRecorder = DefaultSessionRecorder(),
-        balanceAnalyzer: any BalanceAnalyzer = DefaultBalanceAnalyzer(),
-        romAnalyzer: any ROMAnalyzer = DefaultROMAnalyzer(),
-        ergonomicScorer: any ErgonomicScorer = DefaultErgonomicScorer(),
-        fatigueAnalyzer: any FatigueAnalyzer = CoreMLFatigueAnalyzer(modelService: .shared),
-        smoothnessAnalyzer: any SmoothnessAnalyzer = DefaultSmoothnessAnalyzer(),
-        fallRiskAnalyzer: any FallRiskAnalyzer = CoreMLFallRiskAnalyzer(modelService: .shared),
-        gaitPatternClassifier: any GaitPatternClassifier = CoreMLGaitPatternClassifier(modelService: .shared),
-        crossedSyndromeDetector: any CrossedSyndromeDetector = CoreMLCrossedSyndromeDetector(modelService: .shared),
-        painRiskEngine: any PainRiskEngine = DefaultPainRiskEngine(),
-        frailtyScreener: any FrailtyScreener = DefaultFrailtyScreener(),
-        cardioEstimator: any CardioEstimator = DefaultCardioEstimator(),
-        healthKitService: any HealthKitService = DefaultHealthKitService(),
-        pedometerService: any PedometerService = CorePedometerService(),
-        imuStepDetector: any IMUStepDetector = DefaultIMUStepDetector(),
-        trunkMotionAnalyzer: any TrunkMotionAnalyzer = DefaultTrunkMotionAnalyzer()
+        healthKitService: any HealthKitService = DefaultHealthKitService()
     ) {
-        self.gaitAnalyzer = gaitAnalyzer
-        self.postureAnalyzer = postureAnalyzer
-        self.motionService = motionService
+        self.posturePipeline = posturePipeline
+        self.gaitPipeline = gaitPipeline
+        self.sensorPipeline = sensorPipeline
         self.recorder = recorder
-        self.balanceAnalyzer = balanceAnalyzer
-        self.romAnalyzer = romAnalyzer
-        self.ergonomicScorer = ergonomicScorer
-        self.fatigueAnalyzer = fatigueAnalyzer
-        self.smoothnessAnalyzer = smoothnessAnalyzer
-        self.fallRiskAnalyzer = fallRiskAnalyzer
-        self.gaitPatternClassifier = gaitPatternClassifier
-        self.crossedSyndromeDetector = crossedSyndromeDetector
-        self.painRiskEngine = painRiskEngine
-        self.frailtyScreener = frailtyScreener
-        self.cardioEstimator = cardioEstimator
         self.healthKitService = healthKitService
-        self.pedometerService = pedometerService
-        self.imuStepDetector = imuStepDetector
-        self.trunkMotionAnalyzer = trunkMotionAnalyzer
 
         setupCallbacks()
     }
@@ -199,14 +154,12 @@ final class CaptureViewModel {
         case .recording:
             recordingState = .paused
             recorder.pause()
-            motionService.stop()
-            pedometerService.stop()
+            sensorPipeline.stopSensors()
             timer?.invalidate()
         case .paused:
             recordingState = .recording
             recorder.resume()
-            motionService.start()
-            pedometerService.startLiveUpdates()
+            sensorPipeline.startSensors()
             startTimer()
         default:
             break
@@ -216,14 +169,12 @@ final class CaptureViewModel {
     /// Stop recording and finalize the session.
     func stopCapture() {
         recorder.stop()
-        motionService.stop()
-        pedometerService.stop()
+        sensorPipeline.stopSensors()
         timer?.invalidate()
         recordingState = .finished
     }
 
     /// Save the recorded session to SwiftData with full clinical analytics.
-    @MainActor
     // swiftlint:disable:next function_body_length
     func saveSession(context: ModelContext) -> GaitSession? {
         let saveToken = PerformanceMonitor.begin(.sessionSave)
@@ -235,7 +186,7 @@ final class CaptureViewModel {
 
         let trunkLeans = frames.map(\.sagittalTrunkLeanDeg)
         let lateralLeans = frames.map(\.frontalTrunkLeanDeg)
-        let sessionScore = postureAnalyzer.computeSessionScore(
+        let sessionScore = posturePipeline.computeSessionScore(
             trunkLeans: trunkLeans,
             lateralLeans: lateralLeans
         )
@@ -255,18 +206,19 @@ final class CaptureViewModel {
             motionFramesData: GaitSession.encode(motionFrames: motionFrames)
         )
 
-        // Clinical posture averages
-        if !postureMetricsHistory.isEmpty {
-            let n = Double(postureMetricsHistory.count)
-            session.averageCVADeg = postureMetricsHistory.map(\.craniovertebralAngleDeg).reduce(0, +) / n
-            session.averageSVACm = postureMetricsHistory.map(\.sagittalVerticalAxisCm).reduce(0, +) / n
-            session.averageThoracicKyphosisDeg = postureMetricsHistory.map(\.thoracicKyphosisDeg).reduce(0, +) / n
-            session.averageLumbarLordosisDeg = postureMetricsHistory.map(\.lumbarLordosisDeg).reduce(0, +) / n
-            session.averageShoulderAsymmetryCm = postureMetricsHistory.map(\.shoulderAsymmetryCm).reduce(0, +) / n
-            session.averagePelvicObliquityDeg = postureMetricsHistory.map(\.pelvicObliquityDeg).reduce(0, +) / n
-            session.averageCoronalDeviationCm = postureMetricsHistory.map(\.coronalSpineDeviationCm).reduce(0, +) / n
-            session.kendallPosturalType = postureMetricsHistory.last?.posturalType.rawValue
-            session.nyprScore = postureMetricsHistory.last?.nyprScore
+        // Clinical posture averages (from PosturePipeline)
+        let postureHistory = posturePipeline.postureMetricsHistory
+        if !postureHistory.isEmpty {
+            let n = Double(postureHistory.count)
+            session.averageCVADeg = postureHistory.map(\.craniovertebralAngleDeg).reduce(0, +) / n
+            session.averageSVACm = postureHistory.map(\.sagittalVerticalAxisCm).reduce(0, +) / n
+            session.averageThoracicKyphosisDeg = postureHistory.map(\.thoracicKyphosisDeg).reduce(0, +) / n
+            session.averageLumbarLordosisDeg = postureHistory.map(\.lumbarLordosisDeg).reduce(0, +) / n
+            session.averageShoulderAsymmetryCm = postureHistory.map(\.shoulderAsymmetryCm).reduce(0, +) / n
+            session.averagePelvicObliquityDeg = postureHistory.map(\.pelvicObliquityDeg).reduce(0, +) / n
+            session.averageCoronalDeviationCm = postureHistory.map(\.coronalSpineDeviationCm).reduce(0, +) / n
+            session.kendallPosturalType = postureHistory.last?.posturalType.rawValue
+            session.nyprScore = postureHistory.last?.nyprScore
         }
 
         // Gait metrics
@@ -274,48 +226,48 @@ final class CaptureViewModel {
         session.averageStepWidthCm = avgStepWidthCm
         session.gaitAsymmetryPercent = symmetryPercent
 
-        // ROM session summary
-        let romSummary = romAnalyzer.sessionSummary()
+        // ROM session summary (from GaitPipeline)
+        let romSummary = gaitPipeline.romSummary()
         session.averageHipROMDeg = (romSummary.hipROMLeftDeg + romSummary.hipROMRightDeg) / 2
         session.averageKneeROMDeg = (romSummary.kneeROMLeftDeg + romSummary.kneeROMRightDeg) / 2
         session.trunkRotationRangeDeg = romSummary.trunkRotationRangeDeg
         session.armSwingAsymmetryPercent = romSummary.armSwingAsymmetryPercent
 
-        // Fatigue analysis
-        let fatigue = fatigueAnalyzer.assess()
+        // Fatigue analysis (from SensorPipeline)
+        let fatigue = sensorPipeline.fatigueAssessment()
         session.fatigueIndex = fatigue.fatigueIndex
         session.postureVariabilitySD = fatigue.postureVariabilitySD
         session.postureFatigueTrend = fatigue.postureTrendSlope
 
-        // REBA
-        session.rebaScore = rebaScore
+        // REBA (from PosturePipeline)
+        session.rebaScore = posturePipeline.rebaScore
 
-        // Smoothness
-        let smoothness = smoothnessAnalyzer.analyze()
+        // Smoothness (from GaitPipeline)
+        let smoothness = gaitPipeline.smoothnessAnalysis()
         session.sparcScore = smoothness.sparcScore
         session.harmonicRatio = smoothness.harmonicRatioAP
 
-        // Distance tracking (sensor-derived)
+        // Distance tracking (sensor-derived via SensorPipeline)
         session.totalDistanceM = totalDistanceM
         session.pedometerDistanceM = pedometerDistanceM > 0 ? pedometerDistanceM : nil
         session.pedometerStepCount = pedometerStepCount > 0 ? pedometerStepCount : nil
-        if let snapshot = pedometerService.latestSnapshot {
+        if let snapshot = sensorPipeline.latestPedometerSnapshot {
             session.floorsAscended = snapshot.floorsAscended
             session.floorsDescended = snapshot.floorsDescended
         }
 
-        // IMU-derived metrics
+        // IMU-derived metrics (from SensorPipeline)
         session.imuCadenceSPM = imuCadenceSPM > 0 ? imuCadenceSPM : nil
         session.imuStepCount = imuStepCount > 0 ? imuStepCount : nil
-        if let imuSway = balanceAnalyzer.imuSwayMetrics {
+        if let imuSway = sensorPipeline.currentIMUSwayMetrics {
             session.imuSwayRmsML = imuSway.rmsAccelerationML
             session.imuSwayRmsAP = imuSway.rmsAccelerationAP
             session.imuSwayJerkRMS = imuSway.jerkRMS
             session.dominantSwayFrequencyHz = imuSway.dominantSwayFrequencyHz
         }
 
-        // Trunk motion (gyroscope-derived)
-        let trunkMotion = trunkMotionAnalyzer.analyze()
+        // Trunk motion (from SensorPipeline)
+        let trunkMotion = sensorPipeline.trunkMotionAnalysis()
         session.trunkPeakRotationVelocityDPS = trunkMotion.peakRotationVelocityDPS
         session.trunkAvgRotationRangeDeg = trunkMotion.averageRotationRangeDeg
         session.turnCount = trunkMotion.turnCount
@@ -323,8 +275,8 @@ final class CaptureViewModel {
         session.trunkLateralFlexionAvgDeg = trunkMotion.averageLateralFlexionDeg
         session.movementRegularityIndex = trunkMotion.movementRegularityIndex
 
-        // Cardio estimate
-        let cardio = cardioEstimator.estimate(
+        // Cardio estimate (from SensorPipeline)
+        let cardio = sensorPipeline.cardioEstimate(
             walkingSpeedMPS: walkingSpeedMPS,
             cadenceSPM: cadenceSPM,
             strideLengthM: avgStrideLengthM
@@ -332,13 +284,11 @@ final class CaptureViewModel {
         session.estimatedMET = cardio.estimatedMET
         session.walkRatio = cardio.walkRatio
 
-        // Fall risk
-        let stepWidthSD = standardDeviation(stepWidthValues)
-        let fallRisk = fallRiskAnalyzer.assess(
+        // Fall risk (from GaitPipeline)
+        let fallRisk = gaitPipeline.assessFallRisk(
             walkingSpeedMPS: walkingSpeedMPS,
-            strideTimeCVPercent: nil, // From gait analyzer, already handled per-frame
+            strideTimeCVPercent: nil,
             doubleSupportPercent: nil,
-            stepWidthVariabilityCm: stepWidthSD,
             swayVelocityMMS: swayVelocityMMS,
             stepAsymmetryPercent: symmetryPercent,
             tugTimeSec: nil,
@@ -347,13 +297,12 @@ final class CaptureViewModel {
         session.fallRiskScore = fallRisk.compositeScore
         session.fallRiskLevel = fallRisk.riskLevel.rawValue
 
-        // Gait pattern
-        let gaitPattern = gaitPatternClassifier.classify(
+        // Gait pattern (from GaitPipeline)
+        let gaitPattern = gaitPipeline.classifyGaitPattern(
             stanceTimeLeftPercent: nil, stanceTimeRightPercent: nil,
             stepLengthLeftM: nil, stepLengthRightM: nil,
             cadenceSPM: cadenceSPM,
             avgStepWidthCm: avgStepWidthCm,
-            stepWidthVariabilityCm: stepWidthSD,
             pelvicObliquityDeg: pelvicObliquityDeg,
             strideTimeCVPercent: nil,
             walkingSpeedMPS: walkingSpeedMPS,
@@ -364,10 +313,10 @@ final class CaptureViewModel {
         )
         session.gaitPatternClassification = gaitPattern.primaryPattern.rawValue
 
-        // Crossed syndrome
-        let crossed = crossedSyndromeDetector.detect(
+        // Crossed syndrome (from PosturePipeline)
+        let crossed = posturePipeline.detectCrossedSyndromes(
             craniovertebralAngleDeg: session.averageCVADeg ?? 52,
-            shoulderProtractionCm: 0, // Would need shoulder-C7 offset average
+            shoulderProtractionCm: 0,
             thoracicKyphosisDeg: session.averageThoracicKyphosisDeg ?? 30,
             cervicalLordosisDeg: nil,
             pelvicTiltDeg: frames.isEmpty ? 0 : frames.map(\.pelvicTiltDeg).reduce(0, +) / Double(frames.count),
@@ -377,8 +326,8 @@ final class CaptureViewModel {
         session.upperCrossedScore = crossed.upperCrossedScore
         session.lowerCrossedScore = crossed.lowerCrossedScore
 
-        // Pain risk
-        let painRisk = painRiskEngine.assess(
+        // Pain risk (from PosturePipeline)
+        let painRisk = posturePipeline.assessPainRisk(
             craniovertebralAngleDeg: session.averageCVADeg ?? 52,
             sagittalVerticalAxisCm: session.averageSVACm ?? 0,
             thoracicKyphosisDeg: session.averageThoracicKyphosisDeg ?? 30,
@@ -433,13 +382,9 @@ final class CaptureViewModel {
         }
 
         recorder.reset()
-        gaitAnalyzer.reset()
-        balanceAnalyzer.reset()
-        romAnalyzer.reset()
-        fatigueAnalyzer.reset()
-        smoothnessAnalyzer.reset()
-        imuStepDetector.reset()
-        trunkMotionAnalyzer.reset()
+        posturePipeline.reset()
+        gaitPipeline.reset()
+        sensorPipeline.reset()
         resetMetrics()
 
         return session
@@ -448,55 +393,33 @@ final class CaptureViewModel {
     // MARK: - Private
 
     private func setupCallbacks() {
-        // CoreMotion → smoothness, IMU steps, trunk motion, balance IMU
-        motionService.onMotionUpdate = { [weak self] frame in
+        // SensorPipeline handles: CoreMotion → IMU steps, trunk motion, IMU balance
+        // We additionally feed motion frames to the recorder and smoothness analyzer
+        sensorPipeline.setupCallbacks { [weak self] frame in
             guard let self else { return }
             self.recorder.recordMotionFrame(frame)
 
-            // Feed accelerometer to smoothness analyzer
-            self.smoothnessAnalyzer.recordSample(
+            // Feed accelerometer to smoothness analyzer (in GaitPipeline)
+            self.gaitPipeline.recordSmoothnessSample(
                 timestamp: frame.timestamp,
-                accelerationAP: frame.userAccelerationZ,
-                accelerationML: frame.userAccelerationX,
-                accelerationV: frame.userAccelerationY
+                ap: frame.userAccelerationZ,
+                ml: frame.userAccelerationX,
+                v: frame.userAccelerationY
             )
 
-            // IMU step detection (validates ARKit steps + independent cadence)
-            if let imuStep = self.imuStepDetector.processSample(
-                timestamp: frame.timestamp,
-                userAccelerationY: frame.userAccelerationY,
-                userAccelerationX: frame.userAccelerationX,
-                userAccelerationZ: frame.userAccelerationZ
-            ) {
-                self.imuCadenceSPM = imuStep.instantCadenceSPM
-                self.imuStepCount = self.imuStepDetector.stepCount
-            }
-
-            // Trunk motion analysis (gyroscope + attitude)
-            self.trunkMotionAnalyzer.processFrame(frame)
-
-            // IMU-based balance sway (60 Hz, higher resolution than ARKit)
-            self.balanceAnalyzer.processIMUFrame(
-                timestamp: frame.timestamp,
-                userAccelerationX: frame.userAccelerationX,
-                userAccelerationY: frame.userAccelerationY,
-                userAccelerationZ: frame.userAccelerationZ
-            )
-            if let imuSway = self.balanceAnalyzer.imuSwayMetrics {
-                self.imuSwayRmsML = imuSway.rmsAccelerationML
-                self.imuSwayRmsAP = imuSway.rmsAccelerationAP
-            }
+            // Pull updated sensor state into observable properties
+            self.imuCadenceSPM = self.sensorPipeline.imuCadenceSPM
+            self.imuStepCount = self.sensorPipeline.imuStepCount
+            self.imuSwayRmsML = self.sensorPipeline.imuSwayRmsML
+            self.imuSwayRmsAP = self.sensorPipeline.imuSwayRmsAP
         }
 
-        // CMPedometer → distance + step count + cadence
-        pedometerService.onPedometerUpdate = { [weak self] snapshot in
+        // Pedometer updates → sync state and recalculate distance
+        sensorPipeline.onPedometerUpdate = { [weak self] in
             guard let self else { return }
-            self.pedometerDistanceM = snapshot.distanceM ?? 0
-            self.pedometerStepCount = snapshot.stepCount
-            if let cadence = snapshot.currentCadenceSPM {
-                self.pedometerCadenceSPM = cadence
-            }
-            // Update total distance (pedometer is most accurate source)
+            self.pedometerDistanceM = self.sensorPipeline.pedometerDistanceM
+            self.pedometerStepCount = self.sensorPipeline.pedometerStepCount
+            self.pedometerCadenceSPM = self.sensorPipeline.pedometerCadenceSPM
             self.updateTotalDistance()
         }
     }
@@ -534,8 +457,7 @@ final class CaptureViewModel {
                 calibrationStartTime = nil
                 recordingState = .recording
                 recorder.startRecording()
-                motionService.start()
-                pedometerService.startLiveUpdates()
+                sensorPipeline.startSensors()
             }
             return
         }
@@ -558,9 +480,9 @@ final class CaptureViewModel {
             updateTotalDistance()
         }
 
-        // ── Posture analysis ──
+        // ── Posture analysis (via PosturePipeline) ──
         var currentPosture: PostureMetrics?
-        if let postureMetrics = PerformanceMonitor.measure(.postureAnalysis, body: { postureAnalyzer.analyze(joints: joints) }) {
+        if let postureMetrics = PerformanceMonitor.measure(.postureAnalysis, body: { posturePipeline.processPosture(joints: joints) }) {
             currentPosture = postureMetrics
             trunkLeanDeg = postureMetrics.sagittalTrunkLeanDeg
             lateralLeanDeg = postureMetrics.frontalTrunkLeanDeg
@@ -575,7 +497,6 @@ final class CaptureViewModel {
             kendallType = postureMetrics.posturalType
             nyprScore = postureMetrics.nyprScore
             severities = postureMetrics.severities
-            postureMetricsHistory.append(postureMetrics)
 
             // ── Haptic alert for poor posture ──
             if hapticEnabled && postureMetrics.postureScore < 40 && frameIndex - lastHapticFrame > 120 {
@@ -584,9 +505,9 @@ final class CaptureViewModel {
             }
         }
 
-        // ── Gait analysis ──
+        // ── Gait analysis (via GaitPipeline) ──
         let gaitMetrics = PerformanceMonitor.measure(.gaitAnalysis) {
-            gaitAnalyzer.processFrame(joints: joints, timestamp: timestamp)
+            gaitPipeline.processGait(joints: joints, timestamp: timestamp)
         }
         cadenceSPM = gaitMetrics.cadenceSPM
         avgStrideLengthM = gaitMetrics.avgStrideLengthM
@@ -594,12 +515,11 @@ final class CaptureViewModel {
         walkingSpeedMPS = gaitMetrics.walkingSpeedMPS
         avgStepWidthCm = gaitMetrics.avgStepWidthCm
 
-        // ── ROM analysis (every 3rd frame) ──
+        // ── ROM analysis (via GaitPipeline, every 3rd frame) ──
         if frameIndex % 3 == 0 {
             let romMetrics = PerformanceMonitor.measure(.romAnalysis) {
-                romAnalyzer.analyze(joints: joints)
+                gaitPipeline.processROM(joints: joints)
             }
-            romAnalyzer.recordFrame(romMetrics)
             hipFlexionLeftDeg = romMetrics.hipFlexionLeftDeg
             hipFlexionRightDeg = romMetrics.hipFlexionRightDeg
             kneeFlexionLeftDeg = romMetrics.kneeFlexionLeftDeg
@@ -616,29 +536,29 @@ final class CaptureViewModel {
             )
         }
 
-        // ── Balance analysis (every 2nd frame) ──
+        // ── Balance analysis (via SensorPipeline, every 2nd frame) ──
         if frameIndex % 2 == 0 {
             if let root = joints[.root] {
                 let balanceMetrics = PerformanceMonitor.measure(.balanceAnalysis) {
-                    balanceAnalyzer.processFrame(rootPosition: root, timestamp: timestamp)
+                    sensorPipeline.processARKitBalance(rootPosition: root, timestamp: timestamp)
                 }
                 swayVelocityMMS = balanceMetrics.swayVelocityMMS
-                isStanding = balanceAnalyzer.isStanding
+                isStanding = sensorPipeline.isStanding
             }
         }
 
-        // ── REBA (throttled — every 10th frame) ──
+        // ── REBA (via PosturePipeline, throttled — every 10th frame) ──
         if frameIndex % 10 == 0 {
             let reba = PerformanceMonitor.measure(.ergonomicScoring) {
-                ergonomicScorer.computeREBA(joints: joints)
+                posturePipeline.processREBA(joints: joints)
             }
             rebaScore = reba.score
         }
 
-        // ── Fatigue tracking (every 6th frame) ──
+        // ── Fatigue tracking (via SensorPipeline, every 6th frame) ──
         if frameIndex % 6 == 0 {
             PerformanceMonitor.measure(.fatigueTracking) {
-                fatigueAnalyzer.recordTimePoint(
+                sensorPipeline.recordFatigueTimePoint(
                     timestamp: timestamp,
                     postureScore: postureScore,
                     trunkLeanDeg: trunkLeanDeg,
@@ -649,12 +569,11 @@ final class CaptureViewModel {
             }
         }
 
-        // ── Record detected step (with IMU cross-validation) ──
+        // ── Record detected step (with IMU cross-validation via SensorPipeline) ──
         if let strike = gaitMetrics.stepDetected {
-            // Cross-validate ARKit step with IMU accelerometer peak
-            let imuConfidence = imuStepDetector.validateARKitStep(at: strike.timestamp)
+            let imuConfidence = sensorPipeline.validateARKitStep(at: strike.timestamp)
 
-            var stepEvent = StepEvent(
+            let stepEvent = StepEvent(
                 timestamp: strike.timestamp,
                 foot: strike.foot,
                 positionX: strike.position.x,
@@ -666,19 +585,17 @@ final class CaptureViewModel {
                 footClearanceM: strike.footClearanceM.map(Double.init)
             )
             // Only record steps with reasonable IMU confidence (filter false positives)
-            // Threshold of 0.2 is lenient — purely supplementary validation
             if imuConfidence >= 0.2 {
                 recorder.recordStep(stepEvent)
                 stepCount = recorder.stepCount
             } else {
-                // Still record but log for analysis quality tracking
                 recorder.recordStep(stepEvent)
                 stepCount = recorder.stepCount
                 AppLogger.analysis.debug("Low IMU confidence (\(String(format: "%.2f", imuConfidence))) for ARKit step at \(String(format: "%.2f", strike.timestamp))s")
             }
 
             if let sw = strike.stepWidthCm {
-                stepWidthValues.append(Double(sw))
+                gaitPipeline.recordStepWidth(Double(sw))
             }
         }
 
@@ -761,10 +678,8 @@ final class CaptureViewModel {
         lastHapticFrame = 0
         cachedROMValues = nil
         calibrationStartTime = nil
-        postureMetricsHistory.removeAll()
-        stepWidthValues.removeAll()
 
-        // Sensor-derived metrics
+        // Sensor-derived metrics (mirrored from pipelines for @Observable)
         imuCadenceSPM = 0
         imuStepCount = 0
         imuSwayRmsML = 0

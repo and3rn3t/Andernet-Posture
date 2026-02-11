@@ -27,6 +27,7 @@ enum ClinicalTestState: Sendable, Equatable {
 
 /// Drives guided clinical test execution.
 @Observable
+@MainActor
 final class ClinicalTestViewModel {
 
     // MARK: - State
@@ -84,8 +85,10 @@ final class ClinicalTestViewModel {
     }
 
     deinit {
-        timer?.invalidate()
-        sixMWTAutoCompleteTimer?.invalidate()
+        MainActor.assumeIsolated {
+            timer?.invalidate()
+            sixMWTAutoCompleteTimer?.invalidate()
+        }
     }
 
     // MARK: - TUG Protocol
@@ -151,7 +154,9 @@ final class ClinicalTestViewModel {
                     // Transition to eyes closed
                     self.balanceAnalyzer.startRombergEyesClosed()
                     self.testState = .transitioning(instruction: "Now close your eyes. Keep standing still.")
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                    Task { @MainActor [weak self] in
+                        try? await Task.sleep(for: .seconds(3))
+                        guard let self else { return }
                         self.testState = .running(phaseLabel: "Eyes Closed — Stand Still (30s)")
                         self.phaseStartTime = Date()
                         self.startPhaseTimer(duration: 30) {

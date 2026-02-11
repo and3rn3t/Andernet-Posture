@@ -7,6 +7,7 @@
 
 import Foundation
 import ARKit
+import RealityKit
 import QuartzCore
 import simd
 
@@ -24,70 +25,6 @@ protocol BodyTrackingService: AnyObject {
     func stop(in arView: ARView)
 }
 
-// MARK: - ARKit Implementation
-
-import RealityKit
-
-/// - Important: `ARBodyTrackingService` is **deprecated**. All AR body-tracking,
-///   skeleton overlay rendering, and frame-rate throttling are now handled by
-///   `BodyARView.Coordinator`. This class is retained only for backward
-///   compatibility and will be removed in a future release.
-@available(*, deprecated, message: "Use BodyARView.Coordinator instead.")
-final class ARBodyTrackingService: NSObject, BodyTrackingService, ARSessionDelegate {
-    static var isSupported: Bool {
-        ARBodyTrackingConfiguration.isSupported
-    }
-
-    var onBodyUpdate: (([JointName: SIMD3<Float>], TimeInterval) -> Void)?
-    var onError: ((Error) -> Void)?
-
-    /// All joints we want to extract per frame.
-    private let trackedJoints: [JointName] = [
-        .root, .spine1, .spine3, .spine5, .spine7,
-        .neck1, .head,
-        .leftShoulder, .leftArm, .leftForearm, .leftHand,
-        .rightShoulder, .rightArm, .rightForearm, .rightHand,
-        .leftUpLeg, .leftLeg, .leftFoot, .leftToeEnd,
-        .rightUpLeg, .rightLeg, .rightFoot, .rightToeEnd,
-    ]
-
-    func start(in arView: ARView) {
-        let config = ARBodyTrackingConfiguration()
-        config.isAutoFocusEnabled = true
-        arView.session.delegate = self
-        arView.session.run(config, options: [.resetTracking, .removeExistingAnchors])
-    }
-
-    func stop(in arView: ARView) {
-        arView.session.pause()
-    }
-
-    // MARK: - ARSessionDelegate
-
-    nonisolated func session(_ session: ARSession, didUpdate anchors: [ARAnchor]) {
-        guard let body = anchors.compactMap({ $0 as? ARBodyAnchor }).last else { return }
-
-        let rootTransform = body.transform
-        let skeleton = body.skeleton
-        var positions: [JointName: SIMD3<Float>] = [:]
-
-        for joint in trackedJoints {
-            let index = skeleton.definition.index(for: ARSkeleton.JointName(rawValue: joint.jointPath))
-            guard index != NSNotFound else { continue }
-            let modelT = skeleton.jointModelTransforms[index]
-            let worldT = simd_mul(rootTransform, modelT)
-            positions[joint] = SIMD3<Float>(worldT.columns.3.x, worldT.columns.3.y, worldT.columns.3.z)
-        }
-
-        let timestamp = session.currentFrame?.timestamp ?? CACurrentMediaTime()
-        MainActor.assumeIsolated {
-            onBodyUpdate?(positions, timestamp)
-        }
-    }
-
-    nonisolated func session(_ session: ARSession, didFailWithError error: Error) {
-        MainActor.assumeIsolated {
-            onError?(error)
-        }
-    }
-}
+// Note: The legacy ARBodyTrackingService class has been removed.
+// All AR body-tracking, skeleton overlay rendering, and frame-rate
+// throttling are handled by BodyARView.Coordinator.

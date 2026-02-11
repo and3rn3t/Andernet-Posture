@@ -18,6 +18,7 @@ struct TrendPoint: Identifiable {
 
 /// Drives the DashboardView — aggregates session history into displayable summaries.
 @Observable
+@MainActor
 final class DashboardViewModel {
 
     // MARK: - Aggregated metrics

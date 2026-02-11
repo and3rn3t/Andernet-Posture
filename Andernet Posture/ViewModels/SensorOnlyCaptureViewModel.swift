@@ -19,6 +19,7 @@ import SwiftData
 
 /// Drives sensor-only gait capture without ARKit body tracking.
 @Observable
+@MainActor
 final class SensorOnlyCaptureViewModel {
 
     // MARK: - Dependencies
