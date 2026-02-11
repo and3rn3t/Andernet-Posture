@@ -43,4 +43,7 @@
    <FileRef
       location = "group:PROJECT_STRUCTURE.md">
    </FileRef>
+   <FileRef
+      location = "group:CLEANUP_LOG.md">
+   </FileRef>
 </Workspace>
