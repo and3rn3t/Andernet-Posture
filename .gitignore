@@ -79,3 +79,6 @@ project.yml
 *.profdata
 *.gcda
 *.gcno
+
+# VS Code / xcode-build-server
+buildServer.json

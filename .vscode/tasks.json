@@ -1,0 +1,294 @@
+{
+  "version": "2.0.0",
+  "inputs": [
+    {
+      "id": "simulator",
+      "type": "pickString",
+      "description": "Select simulator",
+      "options": [
+        "iPhone 17 Pro",
+        "iPhone 17 Pro Max",
+        "iPhone Air",
+        "iPhone 17",
+        "iPhone 16e"
+      ],
+      "default": "iPhone 17 Pro"
+    },
+    {
+      "id": "configuration",
+      "type": "pickString",
+      "description": "Build configuration",
+      "options": ["Debug", "Release"],
+      "default": "Debug"
+    }
+  ],
+  "tasks": [
+    // ── Build ──────────────────────────────────────────────
+    {
+      "label": "Xcode: Build",
+      "type": "shell",
+      "command": "xcodebuild",
+      "args": [
+        "-scheme", "Andernet Posture",
+        "-project", "Andernet Posture.xcodeproj",
+        "-configuration", "${input:configuration}",
+        "-destination", "platform=iOS Simulator,name=${input:simulator}",
+        "-derivedDataPath", "${workspaceFolder}/.build/DerivedData",
+        "build"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": {
+        "owner": "xcodebuild",
+        "fileLocation": ["relative", "${workspaceFolder}"],
+        "pattern": {
+          "regexp": "^(.+?):(\\d+):(\\d+):\\s+(warning|error|note):\\s+(.+)$",
+          "file": 1,
+          "line": 2,
+          "column": 3,
+          "severity": 4,
+          "message": 5
+        }
+      },
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared",
+        "clear": true
+      }
+    },
+    {
+      "label": "Xcode: Build (Clean)",
+      "type": "shell",
+      "command": "xcodebuild",
+      "args": [
+        "-scheme", "Andernet Posture",
+        "-project", "Andernet Posture.xcodeproj",
+        "-configuration", "${input:configuration}",
+        "-destination", "platform=iOS Simulator,name=${input:simulator}",
+        "-derivedDataPath", "${workspaceFolder}/.build/DerivedData",
+        "clean", "build"
+      ],
+      "group": "build",
+      "problemMatcher": {
+        "owner": "xcodebuild",
+        "fileLocation": ["relative", "${workspaceFolder}"],
+        "pattern": {
+          "regexp": "^(.+?):(\\d+):(\\d+):\\s+(warning|error|note):\\s+(.+)$",
+          "file": 1,
+          "line": 2,
+          "column": 3,
+          "severity": 4,
+          "message": 5
+        }
+      },
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared",
+        "clear": true
+      }
+    },
+    // ── Test ───────────────────────────────────────────────
+    {
+      "label": "Xcode: Run Unit Tests",
+      "type": "shell",
+      "command": "xcodebuild",
+      "args": [
+        "-scheme", "Andernet Posture",
+        "-project", "Andernet Posture.xcodeproj",
+        "-destination", "platform=iOS Simulator,name=${input:simulator}",
+        "-derivedDataPath", "${workspaceFolder}/.build/DerivedData",
+        "-only-testing:Andernet PostureTests",
+        "test"
+      ],
+      "group": "test",
+      "problemMatcher": {
+        "owner": "xcodebuild-test",
+        "fileLocation": ["relative", "${workspaceFolder}"],
+        "pattern": {
+          "regexp": "^(.+?):(\\d+):(\\d+):\\s+(warning|error|note):\\s+(.+)$",
+          "file": 1,
+          "line": 2,
+          "column": 3,
+          "severity": 4,
+          "message": 5
+        }
+      },
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared",
+        "clear": true
+      }
+    },
+    {
+      "label": "Xcode: Run UI Tests",
+      "type": "shell",
+      "command": "xcodebuild",
+      "args": [
+        "-scheme", "Andernet Posture",
+        "-project", "Andernet Posture.xcodeproj",
+        "-destination", "platform=iOS Simulator,name=${input:simulator}",
+        "-derivedDataPath", "${workspaceFolder}/.build/DerivedData",
+        "-only-testing:Andernet PostureUITests",
+        "test"
+      ],
+      "group": "test",
+      "problemMatcher": {
+        "owner": "xcodebuild-test",
+        "fileLocation": ["relative", "${workspaceFolder}"],
+        "pattern": {
+          "regexp": "^(.+?):(\\d+):(\\d+):\\s+(warning|error|note):\\s+(.+)$",
+          "file": 1,
+          "line": 2,
+          "column": 3,
+          "severity": 4,
+          "message": 5
+        }
+      }
+    },
+    // ── Simulator ─────────────────────────────────────────
+    {
+      "label": "Simulator: Boot",
+      "type": "shell",
+      "command": "xcrun simctl boot '${input:simulator}' 2>/dev/null; open -a Simulator",
+      "problemMatcher": []
+    },
+    {
+      "label": "Simulator: Install & Launch App",
+      "type": "shell",
+      "command": "APP=$(find ${workspaceFolder}/.build/DerivedData/Build/Products/Debug-iphonesimulator -name '*.app' -maxdepth 1 | head -1) && xcrun simctl install booted \"$APP\" && xcrun simctl launch booted $(plutil -extract CFBundleIdentifier raw \"$APP/Info.plist\")",
+      "dependsOn": ["Simulator: Boot"],
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "Simulator: Shutdown All",
+      "type": "shell",
+      "command": "xcrun simctl shutdown all",
+      "problemMatcher": []
+    },
+    // ── Lint ──────────────────────────────────────────────
+    {
+      "label": "SwiftLint: Lint Project",
+      "type": "shell",
+      "command": "swiftlint",
+      "args": [
+        "lint",
+        "--config", "${workspaceFolder}/.swiftlint.yml",
+        "--path", "${workspaceFolder}/Andernet Posture"
+      ],
+      "problemMatcher": {
+        "owner": "swiftlint",
+        "fileLocation": ["relative", "${workspaceFolder}"],
+        "pattern": {
+          "regexp": "^(.+?):(\\d+):(\\d+):\\s+(warning|error):\\s+(.+)$",
+          "file": 1,
+          "line": 2,
+          "column": 3,
+          "severity": 4,
+          "message": 5
+        }
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "SwiftLint: Fix (Autocorrect)",
+      "type": "shell",
+      "command": "swiftlint",
+      "args": [
+        "lint", "--fix",
+        "--config", "${workspaceFolder}/.swiftlint.yml",
+        "--path", "${workspaceFolder}/Andernet Posture"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "SwiftLint: Current File",
+      "type": "shell",
+      "command": "swiftlint",
+      "args": [
+        "lint",
+        "--config", "${workspaceFolder}/.swiftlint.yml",
+        "--path", "${file}"
+      ],
+      "problemMatcher": {
+        "owner": "swiftlint",
+        "fileLocation": ["relative", "${workspaceFolder}"],
+        "pattern": {
+          "regexp": "^(.+?):(\\d+):(\\d+):\\s+(warning|error):\\s+(.+)$",
+          "file": 1,
+          "line": 2,
+          "column": 3,
+          "severity": 4,
+          "message": 5
+        }
+      }
+    },
+    // ── Utilities ─────────────────────────────────────────
+    {
+      "label": "Xcode: Open in Xcode",
+      "type": "shell",
+      "command": "open",
+      "args": [
+        "-a", "Xcode",
+        "${workspaceFolder}/Andernet Posture.xcodeproj"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "Xcode: Show Build Settings",
+      "type": "shell",
+      "command": "xcodebuild -scheme 'Andernet Posture' -project 'Andernet Posture.xcodeproj' -showBuildSettings 2>/dev/null | grep -E '(PRODUCT_|BUNDLE_|INFOPLIST_|SWIFT_|DEPLOYMENT_TARGET)' | sort",
+      "problemMatcher": []
+    },
+    {
+      "label": "Xcode: Archive (Release)",
+      "type": "shell",
+      "command": "xcodebuild",
+      "args": [
+        "-scheme", "Andernet Posture",
+        "-project", "Andernet Posture.xcodeproj",
+        "-configuration", "Release",
+        "-destination", "generic/platform=iOS",
+        "-archivePath", "${workspaceFolder}/.build/Andernet_Posture.xcarchive",
+        "archive"
+      ],
+      "group": "build",
+      "problemMatcher": {
+        "owner": "xcodebuild",
+        "fileLocation": ["relative", "${workspaceFolder}"],
+        "pattern": {
+          "regexp": "^(.+?):(\\d+):(\\d+):\\s+(warning|error|note):\\s+(.+)$",
+          "file": 1,
+          "line": 2,
+          "column": 3,
+          "severity": 4,
+          "message": 5
+        }
+      }
+    },
+    {
+      "label": "SourceKit-LSP: Regenerate compile_commands",
+      "type": "shell",
+      "command": "xcode-build-server config -scheme 'Andernet Posture' -project '${workspaceFolder}/Andernet Posture.xcodeproj'",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    }
+  ]
+}
